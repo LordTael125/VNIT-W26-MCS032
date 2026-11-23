@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pattern Recognition Lab 08 - Ho-Kashyap Classifier Studio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<!-- Navigation Bar -->
+<header class="navbar">
+    <div class="container">
+        <div class="brand">
+            <div class="brand-icon">⚖️</div>
+            <div>
+                <div class="brand-title">Classifiers Studio</div>
+                <div class="brand-subtitle">CSL517 Pattern Recognition Lab: Assignment 08 (Ho-Kashyap Linear Classification, KNN & Bayes)</div>
+            </div>
+        </div>
+        <div>
+            <a href="{{ url_for('reset') }}" class="btn-reset" id="btn-reset-session">↻ Reset / New Upload</a>
+        </div>
+    </div>
+</header>
+
+<main class="container">
+
+    <!-- Flash Notifications -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- ============================================================ -->
+    <!-- 1. DATASET UPLOAD & SELECTION -->
+    <!-- ============================================================ -->
+    <section class="card" id="card-upload">
+        <div class="card-header">
+            <div class="card-title">
+                <span class="badge-step">Step 1</span>
+                <span>Dataset Upload & Validation</span>
+            </div>
+        </div>
+        <p style="color: #64748b; margin-bottom: 20px;">
+            Upload any standard tabular classification CSV dataset, or select one of the bundled benchmark datasets to analyze linear separability and train classifiers.
+        </p>
+
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('index') }}">
+            <input type="hidden" name="action" value="upload_dataset">
+
+            <div class="form-row">
+                <!-- File Upload -->
+                <div class="form-group">
+                    <label class="form-label" for="file-upload">Upload Custom CSV Dataset:</label>
+                    <input type="file" class="form-control" id="file-upload" name="file" accept=".csv">
+                </div>
+
+                <!-- Sample Benchmarks -->
+                <div class="form-group">
+                    <label class="form-label" for="sample-select">Or Select a Built-in Benchmark:</label>
+                    <select class="form-control" id="sample-select" name="sample_dataset">
+                        <option value="">-- Choose Benchmark Dataset --</option>
+                        {% for sample in sample_files %}
+                            <option value="{{ sample }}">
+                                {% if sample == 'Linearly_Separable_2D.csv' %}
+                                    ⭐ Linearly Separable 2D (Synthetic - Converges to e=0)
+                                {% elif sample == 'Non_Linearly_Separable_2D.csv' %}
+                                    ⚠️ Non-Linearly Separable 2D (Synthetic - Proves Inseparability)
+                                {% elif sample == 'heart.csv' %}
+                                    ❤️ Cleveland Heart Disease Dataset (Binary)
+                                {% elif sample == 'Iris_Binary.csv' %}
+                                    🌸 Fisher Iris Binary (Setosa vs. Versicolor)
+                                {% elif sample == 'Naive-Bayes-Classification-Data.csv' %}
+                                    📊 Naive Bayes Benchmark (Binary)
+                                {% elif sample == 'Iris_Data.csv' %}
+                                    🌸 Iris Flower Dataset (3 Classes)
+                                {% else %}
+                                    {{ sample }}
+                                {% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="btn-upload">Load & Inspect Dataset →</button>
+        </form>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- 2. DATASET INSPECTION & PREPROCESSING CONFIGURATION -->
+    <!-- ============================================================ -->
+    {% if summary %}
+    <section class="card" id="card-inspection">
+        <div class="card-header">
+            <div class="card-title">
+                <span class="badge-step">Step 2</span>
+                <span>Dataset Inspection & Pre-Training Diagnostics</span>
+            </div>
+            {% if dataset_source %}
+                <span style="font-size: 0.88rem; font-weight: 600; color: var(--primary);">{{ dataset_source }}</span>
+            {% endif %}
+        </div>
+
+        <!-- Metric Grid -->
+        <div class="metric-grid">
+            <div class="metric-card">
+                <div class="metric-value">{{ summary.rows }}</div>
+                <div class="metric-label">Total Records (Rows)</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ summary.columns }}</div>
+                <div class="metric-label">Total Attributes (Cols)</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" style="color: {% if summary.missing_total > 0 %}var(--danger){% else %}var(--success){% endif %};">
+                    {{ summary.missing_total }}
+                </div>
+                <div class="metric-label">Missing Cells</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value" style="color: {% if summary.duplicates_count > 0 %}var(--warning){% else %}var(--success){% endif %};">
+                    {{ summary.duplicates_count }}
+                </div>
+                <div class="metric-label">Duplicate Rows</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ summary.num_cols_count }}</div>
+                <div class="metric-label">Numeric Features</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ summary.cat_cols_count }}</div>
+                <div class="metric-label">Categorical Features</div>
+            </div>
+        </div>
+
+        <!-- Sample Records Preview -->
+        <h4 style="margin: 24px 0 10px 0; color: #1e293b;">First 5 Records Preview</h4>
+        <div class="table-responsive">
+            {{ head | safe }}
+        </div>
+
+        <!-- Preprocessing & Classifier Form -->
+        <form method="POST" action="{{ url_for('index') }}" style="margin-top: 30px;">
+            <input type="hidden" name="action" value="train_model">
+
+            <div class="card-header" style="margin-top: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px;">
+                <div class="card-title" style="font-size: 1.15rem;">
+                    ⚙️ Pre-Training Preparation & Classifier Selection
+                </div>
+            </div>
+
+            <!-- Target Selection -->
+            <div class="form-row" style="margin-top: 15px;">
+                <div class="form-group">
+                    <label class="form-label" for="target_var">Select Target / Class Variable:</label>
+                    <select class="form-control" id="target_var" name="target_var" required>
+                        {% for col in columns %}
+                            <option value="{{ col }}" {% if loop.last %}selected{% endif %}>{{ col }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="classifier_type">Select Classifier Algorithm:</label>
+                    <select class="form-control" id="classifier_type" name="classifier_type">
+                        <option value="ho_kashyap" selected>⚖️ Ho-Kashyap Linear Classifier (Assignment 08 Core)</option>
+                        <option value="knn">🎯 K-Nearest Neighbors (KNN - Assignment 07)</option>
+                        <option value="bayes">📊 Naive Bayes (GaussianNB - Assignment 06)</option>
+                        <option value="all">🏆 Comparative Benchmark (Ho-Kashyap vs. KNN vs. Bayes)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Conditional Pre-Processing Operations -->
+            <div style="background: #f8fafc; padding: 20px; border-radius: var(--radius); border: 1px solid #e2e8f0; margin-top: 15px;">
+                <h4 style="margin-bottom: 15px; color: #1e293b; font-size: 1.05rem;">Data Pre-Processing Options</h4>
+
+                <!-- Missing Values Handling -->
+                <div style="margin-bottom: 16px;">
+                    {% if summary.missing_total > 0 %}
+                        <label class="form-label" style="color: var(--danger);">⚠️ Missing Values Detected ({{ summary.missing_total }} cells):</label>
+                        <select class="form-control" name="impute_strategy">
+                            <option value="median_mode" selected>Impute Missing Values (Median for numeric, Mode for categorical)</option>
+                            <option value="drop">Drop Rows with Missing Values</option>
+                        </select>
+                    {% else %}
+                        <div class="alert alert-success" style="padding: 10px 14px; margin-bottom: 0;">
+                            ✓ Dataset is clean. No missing values detected (0 missing cells).
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Duplicate Rows Handling -->
+                <div style="margin-bottom: 16px;">
+                    {% if summary.duplicates_count > 0 %}
+                        <label class="form-label" style="color: var(--warning);">⚠️ Duplicate Rows Detected ({{ summary.duplicates_count }} rows):</label>
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer;">
+                            <input type="checkbox" name="remove_duplicates" value="1" checked>
+                            Remove duplicate rows automatically before training
+                        </label>
+                    {% else %}
+                        <div class="alert alert-success" style="padding: 10px 14px; margin-bottom: 0;">
+                            ✓ No duplicate records detected.
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Categorical Features Handling -->
+                <div style="margin-bottom: 16px;">
+                    {% if summary.cat_cols_count > 0 %}
+                        <label class="form-label" style="color: #d97706;">ℹ️ Categorical Features Detected ({{ summary.cat_cols_count }} columns):</label>
+                        <p style="font-size: 0.88rem; color: #64748b; margin-bottom: 8px;">
+                            The Ho-Kashyap procedure requires numeric feature vectors. Please select how to handle categorical columns:
+                        </p>
+                        <div style="display: flex; gap: 20px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="cat_handling" value="encode" checked>
+                                <span>Encode categorical features (Label Encoding)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="radio" name="cat_handling" value="exclude">
+                                <span>Exclude categorical features (Keep numeric only)</span>
+                            </label>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-success" style="padding: 10px 14px; margin-bottom: 0;">
+                            ✓ All features are numeric. No categorical encoding needed for Ho-Kashyap.
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Feature Standardization Choice -->
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+                    <label style="display: flex; align-items: center; gap: 10px; font-weight: 600; cursor: pointer;">
+                        <input type="checkbox" name="use_standardization" value="1" checked>
+                        <span>Apply Feature Standardization via StandardScaler: z = (x - μ) / σ (User Choice)</span>
+                    </label>
+                    <p style="font-size: 0.84rem; color: #64748b; margin-top: 4px; margin-left: 24px;">
+                        Standardization centers features to zero mean and unit variance. Highly recommended for Ho-Kashyap to guarantee well-conditioned pseudoinverse matrices.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Ho-Kashyap Hyperparameters & Multi-Eta Selection -->
+            <div style="background: #ffffff; padding: 20px; border-radius: var(--radius); border: 1px solid #e2e8f0; margin-top: 15px;">
+                <h4 style="margin-bottom: 12px; color: #1e293b; font-size: 1.05rem;">⚖️ Ho-Kashyap Hyperparameters & Convergence Analysis</h4>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="default_eta">Default Learning Rate (η):</label>
+                        <input type="number" step="0.05" min="0.05" max="1.5" class="form-control" id="default_eta" name="default_eta" value="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="max_iter">Maximum Iterations (k_max):</label>
+                        <input type="number" step="100" min="100" max="10000" class="form-control" id="max_iter" name="max_iter" value="1000">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="eps_val">Convergence Tolerance (ε):</label>
+                        <input type="number" step="0.0001" min="0.000001" max="0.1" class="form-control" id="eps_val" name="eps_val" value="0.0001">
+                    </div>
+                </div>
+
+                <div style="margin-top: 14px;">
+                    <label class="form-label">Select Learning Rates (η) for Convergence & Linear Separability Study (0.1 to 0.9):</label>
+                    <div class="eta-checkbox-group">
+                        {% for eta_val in [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] %}
+                            <label class="eta-pill-label">
+                                <input type="checkbox" name="eta_values" value="{{ eta_val }}" checked>
+                                <span>η = {{ eta_val }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="btn-train" style="margin-top: 24px; width: 100%; padding: 14px; font-size: 1.1rem;">
+                Train & Evaluate Classifier →
+            </button>
+        </form>
+    </section>
+    {% endif %}
+
+    <!-- ============================================================ -->
+    <!-- 3. EVALUATION RESULTS & CONVERGENCE ANALYSIS -->
+    <!-- ============================================================ -->
+    {% if results %}
+    <section class="card" id="card-results">
+        <div class="card-header">
+            <div class="card-title">
+                <span class="badge-step">Step 3</span>
+                <span>Classification Performance & Convergence Diagnostics</span>
+            </div>
+            {% if prep_summary %}
+                <span style="font-size: 0.88rem; color: #64748b;">
+                    Training Split: {{ prep_summary.train_samples }} samples | Test Split: {{ prep_summary.test_samples }} samples
+                </span>
+            {% endif %}
+        </div>
+
+        <!-- ======================================================== -->
+        <!-- HO-KASHYAP RESULTS -->
+        <!-- ======================================================== -->
+        {% if results.ho_kashyap %}
+        <div style="margin-top: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 30px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 18px;">
+                <h3 style="color: #1e293b; margin: 0;">⚖️ Ho-Kashyap Linear Classifier Results</h3>
+                <span class="{{ results.ho_kashyap.badge_class }}">
+                    {{ results.ho_kashyap.separability_status }}
+                </span>
+            </div>
+
+            <!-- Separability Diagnostic Explanation Box -->
+            <div class="alert alert-info" style="margin-bottom: 20px;">
+                <strong>Linear Separability Diagnosis:</strong> {{ results.ho_kashyap.separability_desc }}
+                (Total Iterations: <strong>{{ results.ho_kashyap.total_iterations }}</strong>)
+            </div>
+
+            <!-- Performance Metrics Bar -->
+            <div class="metric-grid">
+                <div class="metric-card">
+                    <div class="metric-value" style="color: #4361ee;">{{ (results.ho_kashyap.accuracy * 100) | round(1) }}%</div>
+                    <div class="metric-label">Test Accuracy</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" style="color: #e63946;">{{ results.ho_kashyap.error_rate }}</div>
+                    <div class="metric-label">Error Rate (Incorrect/Total)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{{ (results.ho_kashyap.precision * 100) | round(1) }}%</div>
+                    <div class="metric-label">Precision (Weighted)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{{ (results.ho_kashyap.recall * 100) | round(1) }}%</div>
+                    <div class="metric-label">Recall (Weighted)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{{ results.ho_kashyap.f1 }}</div>
+                    <div class="metric-label">F1-Score (Weighted)</div>
+                </div>
+            </div>
+
+            <!-- Weight Vector a & Margin Vector b Summary -->
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin: 24px 0;">
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius); padding: 18px;">
+                    <h4 style="margin-bottom: 8px; color: #1e293b;">
+                        Final Weight Vector <span style="font-family: monospace;">a = [w₀, w₁, ..., w_d]ᵀ</span>
+                    </h4>
+                    <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 12px;">
+                        Coefficients of the linear discriminant function <span style="font-family: monospace;">g(x) = aᵀz</span>.
+                    </p>
+                    <div class="vector-chip-grid">
+                        {% for w in results.ho_kashyap.weight_vector %}
+                            <div class="vector-chip {% if w.is_bias %}vector-chip-bias{% endif %}">
+                                <span>{{ w.name }}:</span>
+                                <strong>{{ w.value }}</strong>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius); padding: 18px;">
+                    <h4 style="margin-bottom: 8px; color: #1e293b;">
+                        Final Margin Vector <span style="font-family: monospace;">b</span>
+                    </h4>
+                    <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 16px;">
+                        Values of margin vector constrained to <span style="font-family: monospace;">b &gt; 0</span>.
+                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
+                            <span style="color: #64748b;">Minimum Margin (min b):</span>
+                            <strong>{{ results.ho_kashyap.b_min }}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
+                            <span style="color: #64748b;">Maximum Margin (max b):</span>
+                            <strong>{{ results.ho_kashyap.b_max }}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="color: #64748b;">Mean Margin (mean b):</span>
+                            <strong>{{ results.ho_kashyap.b_mean }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dual Convergence Plots -->
+            <h4 style="margin: 20px 0 10px 0; color: #1e293b;">Ho-Kashyap Convergence Dynamics at Default η</h4>
+            <div class="plots-dual-grid">
+                <div class="plot-card">
+                    <img src="{{ url_for('static', filename=results.ho_kashyap.plot_e2_path) }}" alt="Iteration vs Error Norm">
+                    <p style="margin-top: 8px; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                        Iteration k vs. Squared Error ‖e(k)‖²
+                    </p>
+                </div>
+                <div class="plot-card">
+                    <img src="{{ url_for('static', filename=results.ho_kashyap.plot_misc_path) }}" alt="Iteration vs Misclassifications">
+                    <p style="margin-top: 8px; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                        Iteration k vs. Misclassified Training Samples
+                    </p>
+                </div>
+            </div>
+
+            <!-- Multi-Eta Convergence & Linear Separability Study -->
+            <div style="margin-top: 30px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 12px;">
+                    <h4 style="margin: 0; color: #1e293b;">
+                        Convergence Analysis Across Learning Rates (η ∈ [0.1, 0.9])
+                    </h4>
+                    <div style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 0.88rem;">
+                        ⭐ Optimal Learning Rate: η = {{ results.ho_kashyap.optimal_eta.eta }}
+                        ({{ results.ho_kashyap.optimal_eta.iterations }} iters, Error: {{ results.ho_kashyap.optimal_eta.error_rate }})
+                    </div>
+                </div>
+
+                <div class="plots-dual-grid">
+                    <div class="plot-card">
+                        <img src="{{ url_for('static', filename=results.ho_kashyap.plot_eta_path) }}" alt="Eta vs Iterations Plot">
+                        <p style="margin-top: 8px; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                            Learning Rate η vs. Number of Iterations & Error Rate
+                        </p>
+                    </div>
+                    <div class="plot-card">
+                        <img src="{{ url_for('static', filename=results.ho_kashyap.cm_path) }}" alt="Ho-Kashyap Confusion Matrix">
+                        <p style="margin-top: 8px; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                            Test Confusion Matrix Heatmap
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Eta Results Table -->
+                <h5 style="margin: 18px 0 10px 0; color: #334155;">Multi-η Convergence Benchmark Table</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr style="background: #f1f5f9;">
+                                <th>Learning Rate (η)</th>
+                                <th>Iterations to Converge</th>
+                                <th>Linear Separability Status</th>
+                                <th>Classification Error Rate</th>
+                                <th>Test Accuracy</th>
+                                <th>Final ‖e(k)‖²</th>
+                                <th>Remaining Misclassifications</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in results.ho_kashyap.eta_study_results %}
+                                <tr {% if row.eta == results.ho_kashyap.optimal_eta.eta %}style="background: #ecfdf5; font-weight: 600;"{% endif %}>
+                                    <td>
+                                        <strong>η = {{ row.eta }}</strong>
+                                        {% if row.eta == results.ho_kashyap.optimal_eta.eta %}
+                                            <span style="color: #059669; font-size: 0.78rem; margin-left: 4px;">★ OPTIMAL</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ row.iterations }}</td>
+                                    <td>
+                                        {% if row.status == 'separable' %}
+                                            <span style="color: #15803d; font-weight: 600;">Separable</span>
+                                        {% elif row.status == 'inseparable' %}
+                                            <span style="color: #b91c1c; font-weight: 600;">Inseparable</span>
+                                        {% else %}
+                                            <span style="color: #b45309;">Max Iterations</span>
+                                        {% endif %}
+                                    </td>
+                                    <td><strong>{{ row.error_rate }}</strong></td>
+                                    <td>{{ (row.accuracy * 100) | round(1) }}%</td>
+                                    <td>{{ row.final_e2 }}</td>
+                                    <td>{{ row.final_misc }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ======================================================== -->
+        <!-- KNN RESULTS -->
+        <!-- ======================================================== -->
+        {% if results.knn %}
+        <div style="margin-top: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 30px;">
+            <h3 style="color: #1e293b; margin-bottom: 18px;">🎯 K-Nearest Neighbors (KNN) Workflow & Elbow Method</h3>
+            
+            <div class="plots-dual-grid">
+                <div class="plot-card">
+                    <img src="{{ url_for('static', filename=results.knn.elbow_plot_path) }}" alt="KNN Elbow Method">
+                    <p style="margin-top: 8px; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                        Elbow Method: K Value vs. Classification Error Rate
+                    </p>
+                </div>
+                <div class="plot-card">
+                    <img src="{{ url_for('static', filename=results.knn.optimal.cm_path) }}" alt="Optimal KNN Confusion Matrix">
+                    <p style="margin-top: 8px; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                        Confusion Matrix at Optimal K = {{ results.knn.optimal.k }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- KNN Comparison Table -->
+            <div class="table-responsive" style="margin-top: 15px;">
+                <table class="table table-hover">
+                    <thead>
+                        <tr style="background: #f1f5f9;">
+                            <th>Model Configuration</th>
+                            <th>Accuracy</th>
+                            <th>Error Rate</th>
+                            <th>Precision</th>
+                            <th>Recall</th>
+                            <th>F1-Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>KNN (Baseline K = 1)</strong></td>
+                            <td>{{ (results.knn.k1.accuracy * 100) | round(1) }}%</td>
+                            <td>{{ results.knn.k1.error_rate }}</td>
+                            <td>{{ results.knn.k1.precision }}</td>
+                            <td>{{ results.knn.k1.recall }}</td>
+                            <td>{{ results.knn.k1.f1 }}</td>
+                        </tr>
+                        <tr style="background: #ecfdf5; font-weight: 600;">
+                            <td><strong>KNN (Optimal Elbow K = {{ results.knn.optimal.k }})</strong></td>
+                            <td>{{ (results.knn.optimal.accuracy * 100) | round(1) }}%</td>
+                            <td>{{ results.knn.optimal.error_rate }}</td>
+                            <td>{{ results.knn.optimal.precision }}</td>
+                            <td>{{ results.knn.optimal.recall }}</td>
+                            <td>{{ results.knn.optimal.f1 }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ======================================================== -->
+        <!-- NAIVE BAYES RESULTS -->
+        <!-- ======================================================== -->
+        {% if results.bayes %}
+        <div style="margin-top: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 30px;">
+            <h3 style="color: #1e293b; margin-bottom: 18px;">📊 Naive Bayes (GaussianNB) Results</h3>
+
+            <div class="metric-grid">
+                <div class="metric-card">
+                    <div class="metric-value" style="color: #f59e0b;">{{ (results.bayes.accuracy * 100) | round(1) }}%</div>
+                    <div class="metric-label">Test Accuracy</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" style="color: #e63946;">{{ results.bayes.error_rate }}</div>
+                    <div class="metric-label">Error Rate</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{{ results.bayes.precision }}</div>
+                    <div class="metric-label">Precision</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{{ results.bayes.recall }}</div>
+                    <div class="metric-label">Recall</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{{ results.bayes.f1 }}</div>
+                    <div class="metric-label">F1-Score</div>
+                </div>
+            </div>
+
+            <div style="max-width: 500px; margin: 20px auto;">
+                <div class="plot-card">
+                    <img src="{{ url_for('static', filename=results.bayes.cm_path) }}" alt="Naive Bayes Confusion Matrix">
+                    <p style="margin-top: 8px; font-weight: 600; color: #475569; font-size: 0.9rem;">
+                        Naive Bayes Confusion Matrix Heatmap
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ======================================================== -->
+        <!-- COMPARATIVE BENCHMARK (ALL 3 CLASSIFIERS) -->
+        <!-- ======================================================== -->
+        {% if classifier_type == 'all' and results.ho_kashyap and results.knn and results.bayes %}
+        <div style="margin-top: 30px;">
+            <h3 style="color: #1e293b; margin-bottom: 14px;">🏆 Side-by-Side Model Benchmark (Bayes vs. KNN vs. Ho-Kashyap)</h3>
+            <p style="color: #64748b; margin-bottom: 16px;">
+                Direct comparative evaluation on identical 25% test partition.
+            </p>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr style="background: #1e293b; color: white;">
+                            <th>Classifier</th>
+                            <th>Model Paradigm</th>
+                            <th>Accuracy</th>
+                            <th>Error Rate</th>
+                            <th>Precision</th>
+                            <th>Recall</th>
+                            <th>F1-Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Ho-Kashyap Linear Classifier</strong></td>
+                            <td>Margin-based Linear Discriminant (NumPy from scratch)</td>
+                            <td><strong>{{ (results.ho_kashyap.accuracy * 100) | round(1) }}%</strong></td>
+                            <td>{{ results.ho_kashyap.error_rate }}</td>
+                            <td>{{ results.ho_kashyap.precision }}</td>
+                            <td>{{ results.ho_kashyap.recall }}</td>
+                            <td>{{ results.ho_kashyap.f1 }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>K-Nearest Neighbors (K = {{ results.knn.optimal.k }})</strong></td>
+                            <td>Non-parametric Instance-Based (Lazy Learner)</td>
+                            <td><strong>{{ (results.knn.optimal.accuracy * 100) | round(1) }}%</strong></td>
+                            <td>{{ results.knn.optimal.error_rate }}</td>
+                            <td>{{ results.knn.optimal.precision }}</td>
+                            <td>{{ results.knn.optimal.recall }}</td>
+                            <td>{{ results.knn.optimal.f1 }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Naive Bayes (GaussianNB)</strong></td>
+                            <td>Generative Probabilistic (Class Conditional Independence)</td>
+                            <td><strong>{{ (results.bayes.accuracy * 100) | round(1) }}%</strong></td>
+                            <td>{{ results.bayes.error_rate }}</td>
+                            <td>{{ results.bayes.precision }}</td>
+                            <td>{{ results.bayes.recall }}</td>
+                            <td>{{ results.bayes.f1 }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- ============================================================ -->
+    <!-- 4. PREDICTION OF NEW INSTANCES -->
+    <!-- ============================================================ -->
+    {% if stage == 'evaluation_and_prediction' and feature_names %}
+    <section class="card" id="card-prediction">
+        <div class="card-header">
+            <div class="card-title">
+                <span class="badge-step">Step 4</span>
+                <span>Prediction of New Instances</span>
+            </div>
+        </div>
+        <p style="color: #64748b; margin-bottom: 20px;">
+            Supply query feature values into the dynamically generated form below. Features are pre-populated with dataset training means for quick validation.
+        </p>
+
+        <!-- Prediction Result Alert -->
+        {% if prediction_result %}
+            <div class="alert alert-success" style="padding: 20px; border-radius: var(--radius); margin-bottom: 25px;">
+                <div style="font-size: 1.25rem; font-weight: 700; margin-bottom: 8px;">
+                    🎯 Prediction Outcome: Class {{ prediction_result.predicted_class_code }} ({{ prediction_result.predicted_label }})
+                </div>
+                <div style="font-size: 0.95rem; color: #1e293b; margin-bottom: 6px;">
+                    Model Used: <strong>{{ prediction_result.model_type }}</strong>
+                </div>
+                {% if prediction_result.discriminant_value is not none %}
+                    <div class="discriminant-box">
+                        Linear Discriminant Score: <strong>g(x) = {{ prediction_result.discriminant_value }}</strong>
+                        <div style="font-size: 0.82rem; color: #64748b; margin-top: 4px;">
+                            Formula: {{ prediction_result.discriminant_formula }}
+                        </div>
+                    </div>
+                {% endif %}
+
+                {% if prediction_result.warnings %}
+                    <div style="margin-top: 12px; background: #fffbeb; border: 1px solid #fde68a; padding: 10px 14px; border-radius: 8px;">
+                        <strong style="color: #b45309;">⚠️ Range Warnings:</strong>
+                        <ul style="margin: 6px 0 0 20px; color: #92400e; font-size: 0.88rem;">
+                            {% for w in prediction_result.warnings %}
+                                <li>{{ w }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <!-- Dynamic Prediction Form -->
+        <form method="POST" action="{{ url_for('index') }}">
+            <input type="hidden" name="action" value="predict_instance">
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px;">
+                {% for feat in feature_names %}
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label class="form-label" for="input_{{ feat }}">
+                            {{ feat }}:
+                            {% if feature_stats and feat in feature_stats %}
+                                <span style="font-size: 0.78rem; font-weight: normal; color: #64748b;">
+                                    [{{ feature_stats[feat].min }} to {{ feature_stats[feat].max }}]
+                                </span>
+                            {% endif %}
+                        </label>
+                        <input type="text" class="form-control" id="input_{{ feat }}" name="{{ feat }}"
+                               value="{% if prediction_result and prediction_result.input_values and feat in prediction_result.input_values %}{{ prediction_result.input_values[feat] }}{% elif feature_stats and feat in feature_stats %}{{ feature_stats[feat].mean }}{% endif %}"
+                               required>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="btn-predict" style="margin-top: 24px; padding: 12px 28px;">
+                Compute Class Prediction →
+            </button>
+        </form>
+    </section>
+    {% endif %}
+
+</main>
+
+<footer style="text-align: center; padding: 30px 0; color: #94a3b8; font-size: 0.88rem;">
+    CSL517 Pattern Recognition Lab - Assignment 08 &bull; Ho-Kashyap Linear Classification Studio
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,1 @@
+{"rows": 303, "cols": 14, "missing_total": 0, "duplicates_count": 0, "num_cols": ["age", "sex", "cp", "trestbps", "chol", "fbs", "restecg", "thalach", "exang", "oldpeak", "slope", "ca", "thal", "target"], "cat_cols": []}

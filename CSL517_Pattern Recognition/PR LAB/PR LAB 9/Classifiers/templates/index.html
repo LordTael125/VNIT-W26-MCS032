@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pattern Recognition Lab 09 - Parzen Window Classifier Studio</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<!-- Navigation Bar -->
+<header class="navbar">
+    <div class="container">
+        <div class="brand">
+            <div class="brand-icon">🔬</div>
+            <div>
+                <div class="brand-title">Parzen Window & Classifiers Studio</div>
+                <div class="brand-subtitle">CSL517 Pattern Recognition Lab: Assignment 09 (Non-Parametric Density Estimation & Multi-Classifier Studio)</div>
+            </div>
+        </div>
+        <div>
+            <a href="{{ url_for('reset') }}" class="btn-reset" id="btn-reset-session">↻ Reset / New Upload</a>
+        </div>
+    </div>
+</header>
+
+<main class="container">
+
+    <!-- Flash Notifications -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- ============================================================ -->
+    <!-- 1. DATASET UPLOAD & SELECTION -->
+    <!-- ============================================================ -->
+    <section class="card" id="card-upload">
+        <div class="card-header">
+            <div class="card-title">
+                <span class="badge-step">Step 1</span>
+                <span>Dataset Upload & Validation</span>
+            </div>
+        </div>
+        <p style="color: #64748b; margin-bottom: 20px;">
+            Upload any standard tabular classification CSV dataset, or select one of the bundled benchmark datasets to perform non-parametric Parzen Window density estimation and classification.
+        </p>
+
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('index') }}">
+            <input type="hidden" name="action" value="upload_dataset">
+
+            <div class="form-row">
+                <!-- File Upload -->
+                <div class="form-group">
+                    <label class="form-label" for="file-upload">Upload Custom CSV Dataset:</label>
+                    <input type="file" name="file" id="file-upload" class="form-control" accept=".csv">
+                    <span class="form-hint">Accepted format: Tabular .csv with headers</span>
+                </div>
+
+                <!-- Preloaded Benchmarks -->
+                <div class="form-group">
+                    <label class="form-label" for="sample-dataset-select">Or Select Bundled Benchmark:</label>
+                    <select name="sample_dataset" id="sample-dataset-select" class="form-control">
+                        <option value="">-- Choose a Benchmark Dataset --</option>
+                        {% for sfile in sample_files %}
+                            <option value="{{ sfile }}">{{ sfile }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="form-hint">Preloaded benchmarks: Iris (3-class), Iris Binary, Cleveland Heart Disease, Linearly Separable 2D, etc.</span>
+                </div>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <button type="submit" class="btn btn-primary" id="btn-inspect-dataset">
+                    <span>Inspect Dataset</span> →
+                </button>
+            </div>
+        </form>
+    </section>
+
+    {% if stage in ['preprocessing_and_config', 'results_and_prediction'] %}
+    <!-- ============================================================ -->
+    <!-- 2. DATA INSPECTION & PRE-TRAINING PREPARATION -->
+    <!-- ============================================================ -->
+    <section class="card" id="card-inspection">
+        <div class="card-header">
+            <div class="card-title">
+                <span class="badge-step">Step 2</span>
+                <span>Data Inspection & Pre-Training Preparation</span>
+            </div>
+            {% if dataset_source %}
+                <span class="badge badge-info">{{ dataset_source }}</span>
+            {% endif %}
+        </div>
+
+        {% if summary %}
+        <!-- Summary Cards Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-val">{{ summary.rows }}</div>
+                <div class="stat-lbl">Total Samples (Rows)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val">{{ summary.columns }}</div>
+                <div class="stat-lbl">Total Columns</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val {{ 'text-danger' if summary.missing_total > 0 else 'text-success' }}">
+                    {{ summary.missing_total }}
+                </div>
+                <div class="stat-lbl">Missing Values</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val {{ 'text-warning' if summary.duplicates_count > 0 else 'text-success' }}">
+                    {{ summary.duplicates_count }}
+                </div>
+                <div class="stat-lbl">Duplicate Rows</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val">{{ summary.num_cols_count }}</div>
+                <div class="stat-lbl">Numeric Features</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val">{{ summary.cat_cols_count }}</div>
+                <div class="stat-lbl">Categorical Columns</div>
+            </div>
+        </div>
+
+        <!-- Schema Table -->
+        <div style="margin: 25px 0;">
+            <h4 style="margin-bottom: 12px; font-weight: 600;">Dataset Schema & Column Types</h4>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Column Name</th>
+                            <th>Data Type</th>
+                            <th>Nature</th>
+                            <th>Missing Cells</th>
+                            <th>Unique Cardinality</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in col_details %}
+                        <tr>
+                            <td><strong>{{ c.name }}</strong></td>
+                            <td><code>{{ c.dtype }}</code></td>
+                            <td>
+                                {% if c.is_numeric %}
+                                    <span class="badge badge-success">Numeric Feature</span>
+                                {% else %}
+                                    <span class="badge badge-warning">Categorical / Text</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.missing > 0 %}
+                                    <span class="text-danger font-bold">{{ c.missing }}</span>
+                                {% else %}
+                                    <span class="text-success">0 (None)</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ c.unique_values }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Preview Table -->
+        <div style="margin: 20px 0;">
+            <h4 style="margin-bottom: 10px; font-weight: 600;">Dataset Head (First 5 Rows)</h4>
+            <div class="table-responsive">
+                {{ head|safe }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Preprocessing Options & Training Configuration Form -->
+        <div style="background-color: var(--gray-100); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 25px; margin-top: 25px;">
+            <h3 style="margin-bottom: 15px; color: var(--dark); font-size: 1.25rem;">
+                ⚙️ Configuration & Pre-Training Setup
+            </h3>
+
+            <form method="POST" action="{{ url_for('index') }}" id="form-train-model">
+                <input type="hidden" name="action" value="train_model">
+
+                <div class="form-row">
+                    <!-- Target Column Selection -->
+                    <div class="form-group">
+                        <label class="form-label" for="target_var">Select Target Variable (Class Label):</label>
+                        <select name="target_var" id="target_var" class="form-control" required>
+                            {% for col in columns %}
+                                <option value="{{ col }}" {% if loop.last %}selected{% endif %}>{{ col }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="form-hint">Target column determines class membership $\omega_j$.</span>
+                    </div>
+
+                    <!-- Classifier Selection -->
+                    <div class="form-group">
+                        <label class="form-label" for="classifier_type">Select Classifier Model:</label>
+                        <select name="classifier_type" id="classifier_type" class="form-control">
+                            <option value="parzen_window" selected>Parzen Window Density Estimator (Gaussian & Hypercube)</option>
+                            <option value="bayes">Bayes Classifier (Gaussian Naive Bayes)</option>
+                            <option value="knn">K-Nearest Neighbors (KNN with Elbow Method)</option>
+                            <option value="ho_kashyap">Ho-Kashyap Linear Classifier (Binary)</option>
+                            <option value="all">Comparative Benchmark (All 4 Classifiers Side-by-Side)</option>
+                        </select>
+                        <span class="form-hint">Choose Parzen Window for Lab 09 core analysis or benchmark all models.</span>
+                    </div>
+                </div>
+
+                <!-- Pre-Training Preparation Controls -->
+                <div style="margin: 20px 0; padding: 18px; background: white; border-radius: 8px; border: 1px solid var(--gray-200);">
+                    <h4 style="margin-bottom: 12px; font-size: 1.05rem; color: #1e293b;">🛠️ Pre-Training Preparation</h4>
+
+                    {% if summary and summary.needs_preprocessing %}
+                        <div class="alert alert-warning" style="margin-bottom: 15px;">
+                            <span>⚠️ Preprocessing required: Missing cells, duplicate rows, or categorical features were detected. Choose handling options below:</span>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Missing Values Imputation Strategy:</label>
+                                <select name="impute_strategy" class="form-control">
+                                    <option value="median_mode" selected>Median (Numeric) / Mode (Categorical)</option>
+                                    <option value="drop">Drop Rows with Missing Values</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Categorical Features Handling:</label>
+                                <select name="cat_handling" class="form-control">
+                                    <option value="encode" selected>Encode using LabelEncoder (Convert to Numeric)</option>
+                                    <option value="exclude">Exclude Categorical Feature Columns</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-check" style="margin-bottom: 15px;">
+                            <input type="checkbox" name="remove_duplicates" id="remove_duplicates" value="1" checked>
+                            <label for="remove_duplicates">Remove duplicate rows ({{ summary.duplicates_count }} duplicates detected)</label>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-success" style="margin-bottom: 15px;">
+                            <span>✓ <strong>Dataset Status: Clean dataset!</strong> No missing values, duplicates, or non-numeric feature columns detected. No preprocessing required.</span>
+                        </div>
+                    {% endif %}
+
+                    <!-- Standardization Choice (Explicitly Required by Assignment) -->
+                    <div class="form-check" style="margin-top: 10px;">
+                        <input type="checkbox" name="use_standardization" id="use_standardization" value="1" checked>
+                        <label for="use_standardization">
+                            <strong>Standardize numerical features using StandardScaler</strong> (Recommended for Parzen Window density estimation to align kernel variance across features).
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Parzen Window Parameters -->
+                <div style="margin: 20px 0; padding: 18px; background: white; border-radius: 8px; border: 1px solid var(--gray-200);">
+                    <h4 style="margin-bottom: 12px; font-size: 1.05rem; color: #1e293b;">🎯 Parzen Window Width Analysis Configuration</h4>
+                    <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 12px;">
+                        The application will first evaluate default parameters (<strong>Gaussian window, $h = 1.0$</strong>), then sweep across the specified values of $h$ for both <strong>Gaussian</strong> and <strong>Hypercube</strong> kernels to determine the optimal window width $h^*$.
+                    </p>
+                    <div class="form-group">
+                        <label class="form-label" for="h_values">Window Width ($h$) Candidate Values (Comma-Separated):</label>
+                        <input type="text" name="h_values" id="h_values" class="form-control" value="0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0">
+                        <span class="form-hint">Suggested values: <code>0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0</code></span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 25px;">
+                    <button type="submit" class="btn btn-success" id="btn-train-submit" style="font-size: 1.05rem; padding: 12px 28px;">
+                        ⚡ Train & Evaluate Classifier(s)
+                    </button>
+                </div>
+            </form>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if stage == 'results_and_prediction' %}
+    {% if results %}
+    <!-- ============================================================ -->
+    <!-- 3. RESULTS & CLASSIFIER EVALUATION -->
+    <!-- ============================================================ -->
+    <section class="card" id="card-results">
+        <div class="card-header">
+            <div class="card-title">
+                <span class="badge-step">Step 3</span>
+                <span>Model Evaluation & Diagnostics</span>
+            </div>
+            <span class="badge badge-success">Completed Successfully</span>
+        </div>
+
+        <!-- Preparation Summary -->
+        {% if prep_summary %}
+        <div class="stats-grid" style="margin-bottom: 25px;">
+            <div class="stat-card">
+                <div class="stat-val text-primary">{{ prep_summary.train_samples }}</div>
+                <div class="stat-lbl">Train Samples (60%)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val text-warning">{{ prep_summary.val_samples }}</div>
+                <div class="stat-lbl">Val Samples (20%)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val text-success">{{ prep_summary.test_samples }}</div>
+                <div class="stat-lbl">Test Samples (20%)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val">{{ prep_summary.num_features }}</div>
+                <div class="stat-lbl">Feature Dimensions ($d$)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val">{{ prep_summary.target_classes|length }}</div>
+                <div class="stat-lbl">Classes ({{ prep_summary.target_classes|join(', ') }})</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-val">{{ 'Yes' if prep_summary.standardization_used else 'No' }}</div>
+                <div class="stat-lbl">Standardized (Z-Score)</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ======================================================== -->
+        <!-- PARZEN WINDOW RESULTS SECTION -->
+        <!-- ======================================================== -->
+        {% if results.parzen %}
+        <div style="margin: 30px 0;">
+            <h2 style="color: var(--primary); font-size: 1.45rem; margin-bottom: 15px; border-bottom: 2px solid var(--primary-light); padding-bottom: 8px;">
+                🔬 Parzen Window Density Estimation & Classification Results
+            </h2>
+
+            <!-- PART A: Default Parameters Run -->
+            <div class="result-box" style="margin-bottom: 30px; border-left: 5px solid #3b82f6;">
+                <h3 style="color: #1e293b; margin-bottom: 12px; font-size: 1.2rem;">
+                    1. Default Parameters Run (Gaussian Window, $h = 1.0$)
+                </h3>
+                <p style="color: #64748b; margin-bottom: 15px;">
+                    Baseline model applied with <strong>Gaussian window function</strong> and <strong>$h = 1.0$</strong> using the <strong>Log-Sum-Exp</strong> trick to prevent numerical underflow.
+                </p>
+
+                <!-- Class Priors -->
+                <div style="margin-bottom: 18px;">
+                    <strong>Prior Probabilities $P(\omega_j)$:</strong>
+                    <div style="display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap;">
+                        {% for cp in results.parzen.default.class_priors %}
+                            <span class="badge badge-info" style="font-size: 0.95rem; padding: 6px 14px;">
+                                {{ cp.class_name }}: <strong>{{ cp.prior }}</strong>
+                            </span>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Test Set Metrics -->
+                <div class="stats-grid" style="margin-bottom: 20px;">
+                    <div class="stat-card">
+                        <div class="stat-val text-primary">{{ (results.parzen.default.accuracy * 100)|round(2) }}%</div>
+                        <div class="stat-lbl">Test Accuracy</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-val text-danger">{{ (results.parzen.default.error_rate * 100)|round(2) }}%</div>
+                        <div class="stat-lbl">Test Error Rate</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-val">{{ (results.parzen.default.precision * 100)|round(2) }}%</div>
+                        <div class="stat-lbl">Macro Precision</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-val">{{ (results.parzen.default.recall * 100)|round(2) }}%</div>
+                        <div class="stat-lbl">Macro Recall</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-val text-success">{{ (results.parzen.default.f1 * 100)|round(2) }}%</div>
+                        <div class="stat-lbl">Macro F1-Score</div>
+                    </div>
+                </div>
+
+                <!-- First 5 Test Samples Table (Explicit Requirement) -->
+                <div style="margin: 25px 0;">
+                    <h4 style="margin-bottom: 10px; font-weight: 600;">
+                        📋 Estimated Densities $p(x | \omega_j)$ & Posteriors $P(\omega_j | x)$ for First 5 Test Samples
+                    </h4>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Sample #</th>
+                                    <th>Actual Class</th>
+                                    <th>Predicted Class</th>
+                                    <th>Status</th>
+                                    <th>Class-Conditional Densities $p(x | \omega_j)$</th>
+                                    <th>Posterior Probabilities $P(\omega_j | x)$</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for s in results.parzen.default.first_five_samples %}
+                                <tr>
+                                    <td><strong>Sample {{ s.sample_id }}</strong></td>
+                                    <td><span class="badge badge-info">{{ s.actual_class }}</span></td>
+                                    <td><span class="badge {{ 'badge-success' if s.is_correct else 'badge-danger' }}">{{ s.predicted_class }}</span></td>
+                                    <td>
+                                        {% if s.is_correct %}
+                                            <span class="text-success font-bold">✓ Correct</span>
+                                        {% else %}
+                                            <span class="text-danger font-bold">✗ Misclassified</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div style="font-size: 0.85rem; line-height: 1.4;">
+                                            {% for cname, dval in s.densities.items() %}
+                                                <div><code>{{ cname }}</code>: {{ dval }}</div>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div style="font-size: 0.85rem; line-height: 1.4;">
+                                            {% for cname, pval in s.posteriors.items() %}
+                                                <div><strong>{{ cname }}</strong>: {{ pval }}</div>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Confusion Matrix Image -->
+                <div style="text-align: center; margin-top: 15px;">
+                    <img src="{{ url_for('static', filename=results.parzen.default.cm_plot) }}" alt="Confusion Matrix Default" style="max-width: 480px; width: 100%; border-radius: 8px; box-shadow: var(--shadow-sm);">
+                </div>
+            </div>
+
+            <!-- PART B: Window Width Analysis (Sweep across h for both window functions) -->
+            <div class="result-box" style="margin-bottom: 30px; border-left: 5px solid #ea580c;">
+                <h3 style="color: #1e293b; margin-bottom: 12px; font-size: 1.2rem;">
+                    2. Window Width ($h$) Analysis (Gaussian vs. Hypercube)
+                </h3>
+                <p style="color: #64748b; margin-bottom: 15px;">
+                    Systematic sweep of window width $h$ across both window functions. Records training error rate, validation error rate, and the count of validation samples falling in empty hypercube windows.
+                </p>
+
+                <!-- High Resolution Plot: h vs. Error Rate (Logarithmic Scale) -->
+                <div style="text-align: center; margin: 25px 0;">
+                    <img src="{{ url_for('static', filename=results.parzen.h_plot) }}" alt="Window Width h vs Error Rate" style="max-width: 820px; width: 100%; border-radius: 8px; box-shadow: var(--shadow-md);">
+                </div>
+
+                <!-- Sweep Results Table -->
+                <div style="margin: 20px 0;">
+                    <h4 style="margin-bottom: 10px; font-weight: 600;">📊 Window Width Sweep Data Table</h4>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Window Width $h$</th>
+                                    <th>Gaussian Train Error</th>
+                                    <th>Gaussian Val Error</th>
+                                    <th>Hypercube Train Error</th>
+                                    <th>Hypercube Val Error</th>
+                                    <th>Hypercube Empty Windows (Val)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in results.parzen.sweep %}
+                                <tr {% if row.h == results.parzen.optimal.h %}style="background-color: #ecfdf5; font-weight: bold;"{% endif %}>
+                                    <td><code>h = {{ row.h }}</code> {% if row.h == results.parzen.optimal.h %}<span class="badge badge-success">Optimal $h^*$</span>{% endif %}</td>
+                                    <td>{{ (row.gauss_train_err * 100)|round(2) }}%</td>
+                                    <td>{{ (row.gauss_val_err * 100)|round(2) }}%</td>
+                                    <td>{{ (row.cube_train_err * 100)|round(2) }}%</td>
+                                    <td>{{ (row.cube_val_err * 100)|round(2) }}%</td>
+                                    <td>
+                                        {% if row.cube_empty_count > 0 %}
+                                            <span class="text-danger">{{ row.cube_empty_count }} sample(s)</span>
+                                        {% else %}
+                                            <span class="text-success">0</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PART C: Optimal Parameter Selection & Comparative Evaluation -->
+            <div class="result-box" style="margin-bottom: 30px; border-left: 5px solid #10b981;">
+                <h3 style="color: #1e293b; margin-bottom: 12px; font-size: 1.2rem;">
+                    3. Optimal Window Function & Width Selection ($h^*$)
+                </h3>
+                <p style="color: #64748b; margin-bottom: 15px;">
+                    The optimal configuration minimizing validation error rate was identified as:
+                    <span class="badge badge-success" style="font-size: 1rem; padding: 6px 14px;">
+                        {{ results.parzen.optimal.window }} Window with $h^* = {{ results.parzen.optimal.h }}$ (Val Error Rate: {{ (results.parzen.optimal.val_error_rate * 100)|round(2) }}%)
+                    </span>
+                </p>
+
+                <!-- Side-by-side comparison table: Default vs Optimal -->
+                <div style="margin: 25px 0;">
+                    <h4 style="margin-bottom: 12px; font-weight: 600;">⚖️ Test Set Performance Comparison: Default vs. Optimal Model</h4>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Evaluation Metric</th>
+                                    <th>Default Model (Gaussian, $h = 1.0$)</th>
+                                    <th>Optimal Model ({{ results.parzen.optimal.window }}, $h = {{ results.parzen.optimal.h }}$)</th>
+                                    <th>Improvement ($\Delta$)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for comp in results.parzen.comparison %}
+                                <tr>
+                                    <td><strong>{{ comp.metric }}</strong></td>
+                                    <td>{{ comp.default }}</td>
+                                    <td><strong>{{ comp.optimal }}</strong></td>
+                                    <td>
+                                        {% if '+' in comp.diff %}
+                                            <span class="text-success font-bold">{{ comp.diff }}</span>
+                                        {% elif '-' in comp.diff and comp.diff != '-' %}
+                                            <span class="text-danger font-bold">{{ comp.diff }}</span>
+                                        {% else %}
+                                            <span style="color: #64748b;">{{ comp.diff }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Confusion Matrix for Optimal Model -->
+                <div style="text-align: center; margin-top: 20px;">
+                    <img src="{{ url_for('static', filename=results.parzen.optimal.cm_plot) }}" alt="Confusion Matrix Optimal" style="max-width: 480px; width: 100%; border-radius: 8px; box-shadow: var(--shadow-sm);">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ======================================================== -->
+        <!-- BAYES CLASSIFIER RESULTS SECTION -->
+        <!-- ======================================================== -->
+        {% if results.bayes %}
+        <div class="result-box" style="margin-bottom: 30px; border-left: 5px solid #f97316;">
+            <h3 style="color: #1e293b; margin-bottom: 12px;">📊 Gaussian Naive Bayes Classifier Results</h3>
+            <div class="stats-grid" style="margin-bottom: 20px;">
+                <div class="stat-card">
+                    <div class="stat-val text-primary">{{ (results.bayes.accuracy * 100)|round(2) }}%</div>
+                    <div class="stat-lbl">Test Accuracy</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-val text-danger">{{ (results.bayes.error_rate * 100)|round(2) }}%</div>
+                    <div class="stat-lbl">Test Error Rate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-val">{{ (results.bayes.f1 * 100)|round(2) }}%</div>
+                    <div class="stat-lbl">Macro F1-Score</div>
+                </div>
+            </div>
+            <div style="text-align: center;">
+                <img src="{{ url_for('static', filename=results.bayes.cm_plot) }}" alt="Confusion Matrix Bayes" style="max-width: 460px; width: 100%; border-radius: 8px;">
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ======================================================== -->
+        <!-- KNN CLASSIFIER RESULTS SECTION -->
+        <!-- ======================================================== -->
+        {% if results.knn %}
+        <div class="result-box" style="margin-bottom: 30px; border-left: 5px solid #8b5cf6;">
+            <h3 style="color: #1e293b; margin-bottom: 12px;">📍 K-Nearest Neighbors Classifier (Optimal $k = {{ results.knn.optimal_k }}$)</h3>
+            <div class="stats-grid" style="margin-bottom: 20px;">
+                <div class="stat-card">
+                    <div class="stat-val text-primary">{{ (results.knn.accuracy * 100)|round(2) }}%</div>
+                    <div class="stat-lbl">Test Accuracy</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-val text-danger">{{ (results.knn.error_rate * 100)|round(2) }}%</div>
+                    <div class="stat-lbl">Test Error Rate</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-val">{{ (results.knn.f1 * 100)|round(2) }}%</div>
+                    <div class="stat-lbl">Macro F1-Score</div>
+                </div>
+            </div>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
+                <img src="{{ url_for('static', filename=results.knn.elbow_plot) }}" alt="KNN Elbow Plot" style="max-width: 480px; width: 100%; border-radius: 8px;">
+                <img src="{{ url_for('static', filename=results.knn.cm_plot) }}" alt="Confusion Matrix KNN" style="max-width: 440px; width: 100%; border-radius: 8px;">
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ======================================================== -->
+        <!-- HO-KASHYAP RESULTS SECTION -->
+        <!-- ======================================================== -->
+        {% if results.ho_kashyap %}
+        <div class="result-box" style="margin-bottom: 30px; border-left: 5px solid #0ea5e9;">
+            <h3 style="color: #1e293b; margin-bottom: 12px;">⚖️ Ho-Kashyap Linear Classifier Results</h3>
+            {% if results.ho_kashyap.is_applicable %}
+                <div class="stats-grid" style="margin-bottom: 20px;">
+                    <div class="stat-card">
+                        <div class="stat-val text-primary">{{ (results.ho_kashyap.accuracy * 100)|round(2) }}%</div>
+                        <div class="stat-lbl">Test Accuracy</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-val text-danger">{{ (results.ho_kashyap.error_rate * 100)|round(2) }}%</div>
+                        <div class="stat-lbl">Test Error Rate</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-val">{{ results.ho_kashyap.status }}</div>
+                        <div class="stat-lbl">Separability Diagnosis</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-val">{{ results.ho_kashyap.iterations }}</div>
+                        <div class="stat-lbl">Iterations</div>
+                    </div>
+                </div>
+                <div style="text-align: center;">
+                    <img src="{{ url_for('static', filename=results.ho_kashyap.cm_plot) }}" alt="Confusion Matrix Ho-Kashyap" style="max-width: 460px; width: 100%; border-radius: 8px;">
+                </div>
+            {% else %}
+                <div class="alert alert-warning">
+                    <span>{{ results.ho_kashyap.message }}</span>
+                </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- ======================================================== -->
+        <!-- BENCHMARK ALL MODELS PLOT -->
+        <!-- ======================================================== -->
+        {% if results.benchmark_plot %}
+        <div class="result-box" style="margin-bottom: 30px; border-left: 5px solid #6366f1;">
+            <h3 style="color: #1e293b; margin-bottom: 12px;">🏆 Comprehensive Classifier Benchmark</h3>
+            <div style="text-align: center; margin-top: 15px;">
+                <img src="{{ url_for('static', filename=results.benchmark_plot) }}" alt="Benchmark Comparison" style="max-width: 760px; width: 100%; border-radius: 8px; box-shadow: var(--shadow-md);">
+            </div>
+        </div>
+        {% endif %}
+
+    </section>
+    {% endif %}
+
+    <!-- ============================================================ -->
+    <!-- 4. PREDICTION OF NEW INSTANCES -->
+    <!-- ============================================================ -->
+    <section class="card" id="card-prediction">
+        <div class="card-header">
+            <div class="card-title">
+                <span class="badge-step">Step 4</span>
+                <span>Prediction of New Instances</span>
+            </div>
+        </div>
+        <p style="color: #64748b; margin-bottom: 20px;">
+            Enter feature values to classify a new instance using the trained optimal model. Inputs are validated, range-checked, and transformed via the fitted pre-processing pipeline.
+        </p>
+
+        <!-- Prediction Outcome Display -->
+        {% if prediction %}
+        <div style="background-color: #f0fdf4; border: 2px solid #86efac; border-radius: var(--radius); padding: 25px; margin-bottom: 30px;">
+            <h3 style="color: #15803d; margin-bottom: 12px; font-size: 1.3rem;">
+                🎯 Prediction Outcome: Class <span style="font-weight: 800; text-decoration: underline;">{{ prediction.predicted_class }}</span>
+            </h3>
+
+            {% if prediction.warnings %}
+                <div style="margin-bottom: 15px;">
+                    {% for w in prediction.warnings %}
+                        <div class="alert alert-warning" style="margin-bottom: 8px; padding: 10px 14px;">
+                            <span>⚠️ {{ w }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <!-- Posterior Probabilities -->
+            {% if prediction.posteriors %}
+            <div style="margin: 20px 0;">
+                <h4 style="margin-bottom: 10px; font-weight: 600;">Posterior Probability Distribution $P(\omega_j | x)$:</h4>
+                <div style="display: flex; flex-direction: column; gap: 10px; max-width: 500px;">
+                    {% for post in prediction.posteriors %}
+                    <div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.95rem;">
+                            <strong>{{ post.class_name }}</strong>
+                            <span>{{ post.prob }}% ({{ post.raw_prob }})</span>
+                        </div>
+                        <div style="background: #e2e8f0; border-radius: 10px; height: 12px; overflow: hidden;">
+                            <div style="background: #22c55e; height: 100%; width: {{ post.prob }}%;"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Class-Conditional Densities -->
+            {% if prediction.densities %}
+            <div style="margin-top: 15px;">
+                <h4 style="margin-bottom: 8px; font-weight: 600;">Estimated Class-Conditional Densities $p(x | \omega_j)$:</h4>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    {% for d in prediction.densities %}
+                        <span class="badge badge-info" style="font-size: 0.95rem; padding: 6px 14px;">
+                            {{ d.class_name }}: <code>{{ d.density }}</code>
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Input Form Generated from Dataset Features -->
+        <form method="POST" action="{{ url_for('index') }}" id="form-predict-instance">
+            <input type="hidden" name="action" value="predict_instance">
+
+            <div class="form-row">
+                {% for col in feature_names %}
+                <div class="form-group">
+                    <label class="form-label" for="feat-{{ col }}">
+                        {{ col }}
+                        {% if feature_stats and col in feature_stats %}
+                            <span style="font-weight: normal; color: #64748b; font-size: 0.8rem;">
+                                (mean: {{ feature_stats[col].mean }}, min: {{ feature_stats[col].min }}, max: {{ feature_stats[col].max }})
+                            </span>
+                        {% endif %}
+                    </label>
+                    <input type="text"
+                           name="{{ col }}"
+                           id="feat-{{ col }}"
+                           class="form-control"
+                           value="{% if prediction and prediction.entered_values and col in prediction.entered_values %}{{ prediction.entered_values[col] }}{% elif feature_stats and col in feature_stats %}{{ feature_stats[col].mean }}{% endif %}"
+                           placeholder="e.g. {{ feature_stats[col].mean if feature_stats and col in feature_stats else '0.0' }}">
+                </div>
+                {% endfor %}
+            </div>
+
+            <div style="margin-top: 20px;">
+                <button type="submit" class="btn btn-primary" id="btn-predict-submit" style="padding: 12px 28px; font-size: 1rem;">
+                    🔮 Predict Instance Class
+                </button>
+            </div>
+        </form>
+    </section>
+    {% endif %}
+
+</main>
+
+<footer style="text-align: center; color: #64748b; font-size: 0.85rem; padding: 30px 0; border-top: 1px solid var(--gray-200); margin-top: 40px;">
+    CSL517 Pattern Recognition Lab - Assignment 09: Non-Parametric Density Estimation using Parzen Window Method & Classifiers Integration.
+</footer>
+
+</body>
+</html>

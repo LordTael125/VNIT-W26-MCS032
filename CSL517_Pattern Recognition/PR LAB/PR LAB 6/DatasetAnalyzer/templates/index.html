@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bayes Classifier Studio</title>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-hover: #3a53d0;
+            --success: #2ecc71;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-main: #2b2d42;
+            --text-muted: #6c757d;
+            --border: #e9ecef;
+        }
+        
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-main);
+            margin: 0; 
+            padding: 40px 20px; 
+            line-height: 1.6;
+        }
+        
+        .container { 
+            max-width: 1000px; 
+            margin: auto; 
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        h1 { color: var(--primary); margin-bottom: 5px; font-size: 2.5em;}
+        .subtitle { color: var(--text-muted); margin-top: 0; }
+        
+        .card { 
+            background: var(--card-bg); 
+            padding: 30px; 
+            margin-bottom: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 8px 15px rgba(0,0,0,0.05); 
+            border: 1px solid var(--border);
+            transition: transform 0.2s ease;
+        }
+        
+        .card:hover { transform: translateY(-2px); }
+        h2 { color: #333; border-bottom: 2px solid var(--border); padding-bottom: 10px; margin-top: 0; font-size: 1.5em; }
+        h3 { color: #555; margin-top: 25px;}
+        
+        /* Table Styling */
+        .table-container { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+        .table { width: 100%; border-collapse: collapse; margin: 0; white-space: nowrap; }
+        .table th, .table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border); }
+        .table th { background-color: var(--primary); color: white; font-weight: 600; }
+        .table tr:last-child td { border-bottom: none; }
+        .table tr:hover { background-color: #f1f3f5; }
+        
+        /* Forms & Buttons */
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; color: #444;}
+        
+        input[type="file"], select, input[type="number"] { 
+            width: 100%; 
+            padding: 10px; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            box-sizing: border-box; 
+            font-size: 1em;
+            background-color: #fff;
+        }
+        
+        select:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+        
+        .btn { 
+            background-color: var(--primary); 
+            color: white; 
+            border: none; 
+            padding: 12px 24px; 
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer; 
+            border-radius: 6px; 
+            transition: background-color 0.3s, box-shadow 0.3s;
+            display: inline-block;
+        }
+        
+        .btn:hover { 
+            background-color: var(--primary-hover); 
+            box-shadow: 0 4px 8px rgba(67, 97, 238, 0.3);
+        }
+        
+        /* Badges for summary stats */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;}
+        .stat-box { background: #eef2ff; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary); }
+        .stat-title { font-size: 0.9em; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;}
+        .stat-value { font-size: 1.5em; font-weight: bold; color: var(--primary); margin-top: 5px;}
+        
+        /* Prediction Result */
+        .result-box {
+            background-color: #e8f8f5;
+            border: 1px solid #a3e4d7;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .result-box h3 { margin: 0; color: #117a65; }
+        .result-value { font-size: 2em; font-weight: bold; color: var(--success); display: block; margin-top: 10px;}
+        
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .cm-image { max-width: 100%; border-radius: 8px; border: 1px solid var(--border); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Bayes Classifier Studio</h1>
+        <p class="subtitle">Pattern Recognition Lab: Automated Data Analysis & Classification</p>
+    </div>
+    
+    <!-- Upload Section -->
+    <div class="card">
+        <h2>1. Dataset Upload</h2>
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <input type="file" name="file" accept=".csv" required>
+            </div>
+            <button type="submit" class="btn">Upload & Analyze Dataset</button>
+        </form>
+    </div>
+
+    <!-- Dataset Summary -->
+    {% if summary %}
+    <div class="card">
+        <h2>2. Dataset Insights</h2>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-title">Total Rows</div>
+                <div class="stat-value">{{ summary.rows }}</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-title">Total Columns</div>
+                <div class="stat-value">{{ summary.columns }}</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-title">Missing Values</div>
+                <div class="stat-value">{{ summary.missing_values }}</div>
+            </div>
+        </div>
+        
+        <h3>Dataset Preview (First 5 Records)</h3>
+        <div class="table-container">
+            {{ head|safe }}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Target Selection -->
+    {% if target_selection %}
+    <div class="card">
+        <h2>3. Model Configuration</h2>
+        <form method="POST">
+            <div class="form-group">
+                <label>Select Target Variable to Predict:</label>
+                <select name="target_var" required>
+                    {% for col in columns %}
+                        <option value="{{ col }}">{{ col }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn">Train Naive Bayes Classifier</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Evaluation Results -->
+    {% if eval %}
+    <div class="card">
+        <h2>4. Model Evaluation & Performance</h2>
+        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+            <div class="stat-box"><div class="stat-title">Target</div><div class="stat-value" style="font-size: 1.2em;">{{ eval.target }}</div></div>
+            <div class="stat-box"><div class="stat-title">Usable Records</div><div class="stat-value" style="font-size: 1.2em;">{{ eval.usable_records }}</div></div>
+            <div class="stat-box"><div class="stat-title">Train / Test Split</div><div class="stat-value" style="font-size: 1.2em;">{{ eval.train_samples }} / {{ eval.test_samples }}</div></div>
+        </div>
+        
+        <div class="metrics-grid">
+            <div>
+                <h3>Performance Metrics</h3>
+                <div class="table-container">
+                    <table class="table">
+                        <tr><th>Metric</th><th>Score</th></tr>
+                        <tr><td><strong>Accuracy</strong></td><td>{{ eval.accuracy }}</td></tr>
+                        <tr><td><strong>Precision</strong></td><td>{{ eval.precision }}</td></tr>
+                        <tr><td><strong>Recall</strong></td><td>{{ eval.recall }}</td></tr>
+                        <tr><td><strong>F1-Score</strong></td><td>{{ eval.f1 }}</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div>
+                <h3>Confusion Matrix</h3>
+                <img src="{{ url_for('static', filename=cm_path) }}" alt="Confusion Matrix" class="cm-image">
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Prediction Section -->
+    {% if prediction_form %}
+    <div class="card">
+        <h2>5. Predict New Instance</h2>
+        <p class="subtitle">Enter values for the features below to predict the class using the trained model.</p>
+        <form method="POST">
+            <input type="hidden" name="predict_btn" value="1">
+            <div class="stats-grid">
+                {% for feature in prediction_form %}
+                <div class="form-group">
+                    <label>{{ feature }}</label>
+                    <input type="number" step="any" name="{{ feature }}" required placeholder="Enter value...">
+                </div>
+                {% endfor %}
+            </div>
+            <button type="submit" class="btn">Generate Prediction</button>
+        </form>
+        
+        {% if prediction_result is defined %}
+        <div class="result-box">
+            <h3>Predicted Class Result</h3>
+            <span class="result-value">{{ prediction_result }}</span>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+</body>
+</html>

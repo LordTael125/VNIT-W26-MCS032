@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dataset Analyzer</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; }
+        header { background-color: #2b56d3; color: white; text-align: center; padding: 20px 0; }
+        .container { max-width: 1000px; margin: 20px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { border-left: 4px solid #2b56d3; padding-left: 10px; color: #333; }
+        .grid { display: flex; gap: 20px; text-align: center; margin-bottom: 20px; }
+        .card { flex: 1; background: #eef2fa; padding: 20px; border-radius: 5px; }
+        .card h3 { margin: 0; font-size: 1.5em; color: #2b56d3; }
+        .table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .table th, .table td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        .table th { background-color: #2b56d3; color: white; }
+        .btn { background-color: #2b56d3; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; font-size: 1em; }
+        .btn:hover { background-color: #1a3b99; }
+        .plot-container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+        .plot-container img { max-width: 45%; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Dataset Analyzer</h1>
+        <p>CSV Dataset Analysis and Preprocessing</p>
+    </header>
+
+    <div class="container">
+        <!-- 1. File Upload -->
+        <section>
+            <h2>| Upload CSV Dataset</h2>
+            <form method="POST" enctype="multipart/form-data">
+                <input type="file" name="file" accept=".csv" required>
+                <button type="submit" class="btn">Analyze Dataset</button>
+            </form>
+        </section>
+
+        <!-- 2. Dataset Summary & Preprocessing -->
+        {% if summary or preprocessing %}
+        <section>
+            <h2>| Dataset Summary (Before Preprocessing)</h2>
+            <div class="grid">
+                <div class="card">Rows<br><h3>{{ summary.rows if summary else preprocessing.rows_before }}</h3></div>
+                <div class="card">Columns<br><h3>{{ summary.columns if summary else 'N/A' }}</h3></div>
+                <div class="card">Missing Values<br><h3>{{ summary.missing_values if summary else 'N/A' }}</h3></div>
+                <div class="card">Duplicate Rows<br><h3>{{ summary.duplicate_rows if summary else preprocessing.duplicates_found }}</h3></div>
+            </div>
+
+            {% if info %}
+            <h2>| Dataset Information</h2>
+            <table class="table">
+                <tr><th>Column Name</th><th>Data Type</th><th>Missing Values</th><th>Non-Null Values</th></tr>
+                {% for col in info %}
+                <tr><td>{{ col.name }}</td><td>{{ col.type }}</td><td>{{ col.missing }}</td><td>{{ col.non_null }}</td></tr>
+                {% endfor %}
+            </table>
+            {% endif %}
+
+            {% if preprocessing %}
+            <h2>| Data Pre-Processing Results</h2>
+            <div class="grid">
+                <div class="card">Rows After<br><h3>{{ preprocessing.rows_after }}</h3></div>
+                <div class="card">Duplicates Removed<br><h3>{{ preprocessing.duplicates_removed }}</h3></div>
+                <div class="card">Missing Values After<br><h3>{{ preprocessing.missing_after }}</h3></div>
+            </div>
+            {% endif %}
+
+            <h2>| First Five Records</h2>
+            {{ head|safe }}
+        </section>
+
+        <!-- 3. Feature Selection -->
+        <section>
+            <h2>| Select Independent Features</h2>
+            <form method="POST">
+                {% for feature in num_features %}
+                <label><input type="checkbox" name="features" value="{{ feature }}"> {{ feature }}</label>&nbsp;&nbsp;
+                {% endfor %}
+                <br><br>
+                <button type="submit" class="btn">Perform Statistical Analysis</button>
+            </form>
+        </section>
+        {% endif %}
+
+        <!-- 4. Statistical Analysis & Graphs -->
+        {% if stats %}
+        <section>
+            <h2>| Statistical Analysis</h2>
+            <table class="table">
+                <tr><th>Feature</th><th>Mean</th><th>Median</th><th>Mode</th><th>Variance</th><th>Std Dev</th><th>Min</th><th>Max</th><th>Range</th><th>Q1</th><th>Q3</th><th>IQR</th></tr>
+                {% for stat in stats %}
+                <tr>
+                    <td>{{ stat.feature }}</td><td>{{ stat.mean }}</td><td>{{ stat.median }}</td><td>{{ stat.mode }}</td>
+                    <td>{{ stat.var }}</td><td>{{ stat.std }}</td><td>{{ stat.min }}</td><td>{{ stat.max }}</td>
+                    <td>{{ stat.range }}</td><td>{{ stat.q1 }}</td><td>{{ stat.q3 }}</td><td>{{ stat.iqr }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+
+            <h2>| Histograms</h2>
+            <div class="plot-container">
+                {% for path in hist_paths %}
+                <img src="{{ url_for('static', filename=path) }}" alt="Histogram">
+                {% endfor %}
+            </div>
+
+            <h2>| Box Plots</h2>
+            <div class="plot-container">
+                {% for path in box_paths %}
+                <img src="{{ url_for('static', filename=path) }}" alt="Box Plot">
+                {% endfor %}
+            </div>
+
+            {% if corr_path %}
+            <h2>| Correlation Matrix Heatmap</h2>
+            <div style="text-align: center;">
+                <img src="{{ url_for('static', filename=corr_path) }}" alt="Correlation Matrix" style="max-width: 60%; border: 1px solid #ddd;">
+            </div>
+            {% endif %}
+        </section>
+        {% endif %}
+    </div>
+
+</body>
+</html>
