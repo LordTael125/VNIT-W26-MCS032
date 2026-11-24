@@ -1,0 +1,49 @@
+reflection.txt
+Task 1 – Security/Privacy Question
+
+Question: What security/privacy issues might arise if this log is publicly readable?
+
+Answer:
+If the login log is publicly readable, it can expose usernames, login times, and active login sessions. An attacker may use this information to learn about the users of the system and their working patterns. Therefore, the log file should have restricted permissions and should only be accessible to authorized users.
+
+Task 2 – Prime Checking
+
+Question: Which approach scales better and why?
+
+Answer:
+The optimized approach using the √n rule scales better than naive division. The naive method may check many possible divisors up to n, while the optimized method only checks divisors up to √n. Therefore, for large numbers, the optimized method requires fewer calculations and takes less time.
+
+Task 3 – Small Folder vs Large Directory Tree
+
+Question: How would the script behave differently if run on a small folder with 10 files versus a large directory tree with 10,000+ files?
+
+Answer:
+For a small folder containing around 10 files, the script will finish almost immediately because there are very few files to examine. For a directory tree containing more than 10,000 files, the find command has to traverse many files and directories, so execution will take more time. The memory requirement can also increase depending on how the file information is processed.
+
+Mini-analysis – Time Complexity
+
+Question: Estimate the time complexity of your script in terms of the number of files N.
+
+Answer:
+The script checks each file once while searching and classifying the extensions. Therefore, the main file scanning part has approximately O(N) time complexity, where N is the number of files. The sorting step works on only four file types, so its cost is effectively constant for this script.
+
+Reflection Questions
+1. If ChatGPT gave you a script for Task 3, what edge cases would you still need to test?
+
+Answer:
+I would test the script with an empty directory, directories containing only hidden files, files without extensions, and files with uppercase extensions such as .TXT or .JAVA. I would also test nested directories and filenames containing spaces.
+
+2. Which of your scripts would fail if run on a very large dataset? Why?
+
+Answer:
+The file counter could become slower on a very large directory tree because it has to scan every file recursively. The prime-checking script using naive division would also become slow for very large numbers because it performs many division operations.
+
+3. What assumptions did you (or ChatGPT) make that might not hold in real scenarios?
+
+Answer:
+One assumption is that files have simple extensions such as .txt, .c, .java, or .sh. In real systems, filenames can contain unusual characters, spaces, or multiple dots. We also assume that the user has permission to access all directories being searched.
+
+4. If you had to redesign one script to handle enterprise scale, what would you change?
+
+Answer:
+For millions of files, I would avoid repeatedly scanning the entire directory tree. I would use a more efficient indexing or database-based approach and process files in batches. For login information, I would also use proper system logging with access control instead of keeping a simple text file publicly accessible.

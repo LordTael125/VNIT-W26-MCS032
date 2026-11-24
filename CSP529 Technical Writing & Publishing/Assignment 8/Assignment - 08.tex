@@ -1,0 +1,525 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry} % Sets standard 1-inch margins
+\usepackage{mathptmx} % Times New Roman equivalent
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{graphicx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{url}
+\usepackage[colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue]{hyperref}
+
+% --------------------------------------------------------------------------------------------
+% Custom Commands (Consistent with Practicals 6 & 7)
+% --------------------------------------------------------------------------------------------
+
+% Custom command for Topic names (Font size 14)
+\newcommand{\topicTitle}[1]{
+    \vspace{1.2em}\noindent{\fontsize{14}{16.8}\selectfont \textbf{#1}}\par\vspace{0.5em}
+}
+
+% Custom command for Questions/Labels (Bold, Font size 12)
+\newcommand{\qLabel}[1]{
+    {\fontsize{12}{14.4}\selectfont \textbf{#1}}
+}
+
+% --------------------------------------------------------------------------------------------
+
+\begin{document}
+
+% ============================================================================================
+% Cover Page
+% ============================================================================================
+\begin{center}
+    \includegraphics[width=0.35\textwidth]{vnit-logo.jpg}\\[2.5cm]
+    
+    {\large \textbf{Group Members}}\\[0.4cm]
+    \begin{tabular}{l c l}
+        Student 1: Gaurav Acharya & --- & [MT26MCS024] \\
+        Student 2: Sandeep & --- & [MT26MCS032]
+    \end{tabular}
+    
+    \vspace{1.5cm}
+    
+    {\large \textbf{Guide Name}}\\[0.4cm]
+    Dr. A. S. Mokhade
+    
+    \vspace{1.5cm}
+    
+    {\large \textbf{Practical Title:}}\\[0.4cm]
+    CSP529: Technical Writing \& Publishing\\[0.2cm]
+    Practical 8: Challenging Your Research Gap Through Literature Search:\\[0.1cm]
+    From a Provisional Research Question to an Evidence-Based Research Justification
+    
+    \vspace{1.5cm}
+    
+    {\large \textbf{Problem Statement:}}\\[0.4cm]
+    Challenging a Proposed Research Question through a Systematic Literature Search
+    
+\end{center}
+
+% ============================================================================================
+\newpage
+{\centering\fontsize{16}{20}\selectfont\textbf{Stage 1 --- Examine Your Research Gap Claim}\par}
+\vspace{1em}
+
+\topicTitle{A. Write Down Your Current Position}
+
+In Practical~7, our group evaluated the empirical evidence from Reddy~[1] and Samanta and Biswas~[2] regarding fundamental CPU scheduling algorithms. While both studies proved that Shortest Job First (SJF) and Shortest Remaining Time First (SRTF) minimize Average Waiting Time (AWT) and Average Turnaround Time (ATAT), they relied on two critical idealized assumptions: (1) exact future CPU burst times are known prior to execution, and (2) context-switch latency is negligible ($t_{cs} = 0$). To examine whether this unresolved issue constitutes a genuine, defensible research gap across the broader scientific literature, we record our baseline position:
+
+\vspace{0.8em}
+\begin{itemize}[leftmargin=1.5em]
+
+    \item \qLabel{A1. What is your proposed research question?} \\
+    \vspace{0.2em}
+    \textit{``Under what burst prediction error thresholds and context-switch latencies does Shortest Remaining Time First (SRTF) scheduling fail to outperform non-preemptive First-Come-First-Served (FCFS) in average waiting time?''}
+
+    \vspace{0.8em}
+    \item \qLabel{A2. What specific gap or unresolved issue motivated this question?} \\
+    \vspace{0.2em}
+    The motivation stems from the stark contradiction between theoretical optimality and operational reality in operating system design. Both examined papers demonstrate that SRTF achieves minimal waiting latency. However, in general-purpose computing systems, process burst times cannot be known in advance and must be estimated through heuristics (e.g., exponential smoothing or historical profiling). Simultaneously, every preemption incurs hardware overhead: saving and restoring registers, kernel dispatcher execution, and CPU cache/TLB invalidations. The unresolved issue is that the starting papers do not establish at what prediction error magnitude or context-switching latency the theoretical advantage of SRTF collapses, leaving the practical decision boundary between greedy preemptive scheduling and passive non-preemptive scheduling (FCFS) completely unquantified.
+
+    \vspace{0.8em}
+    \item \qLabel{A3. Which findings from your original papers suggest this gap?} \\
+    \vspace{0.2em}
+    Several specific findings and explicit admissions in our original papers exposed this gap:
+    \begin{enumerate}[label=(\alph*)]
+        \item \textbf{Reddy [1] (Section~III.B \& Section~V):} The author explicitly acknowledges that algorithms like SRTF and Future Knowledge Scheduling (FKS) depend on knowing future burst times, which is \textit{``not always realistic in the real world''} and \textit{``limits its use mostly to theoretical discussions.''} Despite this admission, the paper's quantitative evaluation (Table~3, Gantt charts Figs.~1--3) was conducted exclusively on five static processes ($P_1$--$P_5$) arriving simultaneously at $t=0$ with zero context-switch delay ($t_{cs}=0$).
+        \item \textbf{Samanta and Biswas [2] (Section~4 \& Section~6):} The authors evaluated FCFS, SJF, RR, and Priority across five synthetic arithmetic cases for four static processes ($P_1$--$P_4$). They concluded that burst time is directly proportional to waiting time and that SJF is the fastest algorithm across all cases. However, all cases assumed perfect advance knowledge of burst times and zero preemption cost, completely omitting prediction error and dispatcher overhead.
+        \item \textbf{Absence of Trade-off Characterization:} Neither paper evaluated dynamic arrivals, preemption frequency, prediction error variance, cache thrashing, or throughput, leaving the robustness of SRTF unmeasured.
+    \end{enumerate}
+
+    \vspace{0.8em}
+    \item \qLabel{A4. What published evidence, if discovered, would weaken or invalidate your gap claim?} \\
+    \vspace{0.2em}
+    A research gap claim is only valid if the wider scientific community has not already investigated and resolved it. Our gap claim would be substantially weakened or invalidated if existing literature reveals that:
+    \begin{enumerate}[label=(\alph*)]
+        \item \textbf{Prior Theoretical or Empirical Solution:} Rigorous queueing theory or operating systems literature has already mathematically derived or empirically simulated the exact crossover boundaries where runtime estimation error variance and context-switch latency cause SRTF's mean waiting time to degrade below FCFS.
+        \item \textbf{Robustness Invariance (Dominance):} Published studies establish that even under severe prediction error and realistic context-switch latencies, SRTF/SRPT remains practically superior to FCFS across standard workload distributions (e.g., heavy-tailed or Pareto distributions), rendering the crossover point practically unreachable or irrelevant.
+        \item \textbf{Triviality or False Dichotomy:} Published work demonstrates that comparing noisy SRTF against raw FCFS is an irrelevant baseline because modern operating systems employ adaptive fallback heuristics (such as Size Estimate Hedging or Multilevel Feedback Queues) that resolve prediction uncertainty without resorting to FCFS.
+    \end{enumerate}
+
+\end{itemize}
+
+
+% ============================================================================================
+\newpage
+{\centering\fontsize{16}{20}\selectfont\textbf{Stage 2 --- Design a Literature Search Strategy}\par}
+\vspace{1em}
+
+\topicTitle{B. Identify Search Concepts}
+
+To challenge our research question systematically, we decompose it into its foundational conceptual dimensions. Operating system researchers and queueing theorists frequently use divergent vocabularies to describe identical phenomena (e.g., computer systems literature refers to ``CPU burst time'' and ``context switching,'' whereas queueing literature refers to ``job processing time'' and ``preemption overhead''). Table~\ref{tab:search_concepts} maps these concepts, their operational meanings, and their synonymous terms.
+
+\vspace{0.5em}
+{\small
+\begin{longtable}{|>{\raggedright\arraybackslash}p{3.2cm}|>{\raggedright\arraybackslash}p{4.0cm}|>{\raggedright\arraybackslash}p{4.2cm}|>{\raggedright\arraybackslash}p{3.7cm}|}
+    \caption{Concept Decomposition and Keyword Mapping}
+    \label{tab:search_concepts} \\
+    
+    \hline
+    \textbf{Core Dimension} & \textbf{Primary Concept} & \textbf{Synonyms / Alternative Terms} & \textbf{Applied Context} \\
+    \hline
+    \endfirsthead 
+    
+    \multicolumn{4}{c}{\tablename\ \thetable\ -- \textit{Continued from previous page}} \\
+    \hline
+    \textbf{Core Dimension} & \textbf{Primary Concept} & \textbf{Synonyms / Alternative Terms} & \textbf{Applied Context} \\
+    \hline
+    \endhead
+
+    \hline
+    \multicolumn{4}{r}{\textit{Continued on next page}} \\
+    \endfoot
+
+    \hline
+    \endlastfoot
+
+    % Row 1: Algorithm
+    \textbf{Algorithm / Method} & 
+    Shortest Remaining Time First (SRTF) & 
+    Shortest Remaining Processing Time (SRPT), Shortest Job First (SJF), Preemptive SJF, Shortest Process Next (SPN), Shortest Estimated Remaining Processing Time (SERPT). & 
+    Size-based scheduling disciplines in uniprocessor operating systems and single-server queueing systems ($M/G/1$). \\
+    \hline
+
+    % Row 2: Condition 1
+    \textbf{Operating Condition 1 (Inexact Information)} & 
+    Burst Time Prediction Error & 
+    Inexact job sizes, imperfect job size information, runtime estimation error, noisy predictions, estimation variance, misprediction penalty, size estimate uncertainty. & 
+    Dynamic workloads where future service durations are estimated via exponential smoothing, profiling, or machine learning. \\
+    \hline
+
+    % Row 3: Condition 2
+    \textbf{Operating Condition 2 (Overhead)} & 
+    Context-Switch Latency & 
+    Preemption overhead, preemption penalty, switching delay, dispatcher latency, cache perturbation, state-saving overhead, preemption cost. & 
+    Hardware and architectural penalties incurred when interrupting an active thread or process to schedule another. \\
+    \hline
+
+    % Row 4: Performance Characteristic
+    \textbf{Performance Characteristic} & 
+    Average Waiting Time & 
+    Mean waiting time, average turnaround time, mean response time, sojourn time, flow time, queueing delay, performance crossover boundary, breakdown threshold. & 
+    Quantitative metrics measuring system responsiveness and scheduling efficiency. \\
+    \hline
+
+    % Row 5: Baseline Comparator
+    \textbf{Baseline Comparator} & 
+    First-Come-First-Served (FCFS) & 
+    First-In-First-Out (FIFO), non-preemptive scheduling, size-oblivious scheduling, Processor Sharing (PS). & 
+    Reference policies that incur zero prediction cost and minimal preemption overhead. \\
+    \hline
+
+\end{longtable}
+}
+
+\vspace{0.8em}
+\topicTitle{C. Construct Search Queries}
+
+We construct three distinct, purposefully designed search queries to explore different layers of the scholarly landscape:
+
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Broad Query (Landscape Mapping):} \\
+    \texttt{("Shortest Remaining Processing Time" OR "SRPT" OR "SRTF") AND ("CPU scheduling" OR "queueing") AND ("overhead" OR "waiting time")} \\
+    \textit{Purpose:} To understand how systems researchers and queueing theorists model the trade-offs between size-based scheduling advantages and real-world system overheads.
+
+    \vspace{0.4em}
+    \item \textbf{Focused Query (Direct Gap Investigation):} \\
+    \texttt{("SRTF" OR "SRPT") AND ("prediction error" OR "estimation error" OR "inexact job sizes") AND ("context switch" OR "preemption overhead") AND ("FCFS" OR "FIFO")} \\
+    \textit{Purpose:} To locate studies that specifically investigate how prediction errors and preemption overhead jointly impact SRTF performance relative to non-preemptive FCFS.
+
+    \vspace{0.4em}
+    \item \textbf{Challenge Query (Adversarial Falsification):} \\
+    \texttt{("SRPT" OR "SRTF") AND ("crossover" OR "breakdown" OR "outperform" OR "worse than FCFS" OR "worse than FIFO") AND ("estimation error" OR "preemption overhead")} \\
+    \textit{Purpose:} To deliberately search for published papers that have already established whether and when SRTF ceases to outperform FCFS, directly testing whether our proposed gap has already been solved.
+\end{enumerate}
+
+\vspace{0.8em}
+\topicTitle{D. Select Sources}
+
+We selected three primary scholarly search platforms to conduct this literature challenge:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{ACM Digital Library:} Essential for leading computer systems, architecture, and performance modeling literature, including ACM SIGMETRICS, ACM Transactions on Computer Systems (TOCS), and EuroSys.
+    \item \textbf{IEEE Xplore:} Critical for foundational operating systems and communications literature, including IEEE Transactions on Computers, IEEE Transactions on Communications, and IEEE IPDPS.
+    \item \textbf{Google Scholar:} Used as a cross-publisher discovery engine to track forward/backward citations, institutional preprints, and specialized venues (e.g., Springer QEST, LIPIcs ITCS).
+\end{itemize}
+
+\noindent\textit{Platform Selection Rationale:} Academic search engines serve as discovery mechanisms, not authoritative evidence. Actual full-text papers must be retrieved and scrutinized to assess experimental parameters, mathematical proofs, and boundary conditions.
+
+
+% ============================================================================================
+\newpage
+{\centering\fontsize{16}{20}\selectfont\textbf{Stage 3 --- Search, Screen and Select Research Papers}\par}
+\vspace{1em}
+
+\topicTitle{E. Conduct the Search}
+
+Using the defined search queries across ACM Digital Library, IEEE Xplore, and Google Scholar, we screened search results across titles, abstracts, methodology sections, and mathematical models. We identified five distinct candidate papers that directly investigate the limits of SRTF/SRPT under estimation errors or preemption overheads. From these five, three papers were selected for rigorous examination during this practical.
+
+\vspace{0.8em}
+\topicTitle{F. Search and Selection Log}
+
+Table~\ref{tab:selection_log} documents the search execution, candidate paper screening, and inclusion/exclusion rationale.
+
+\vspace{0.5em}
+{\small
+\begin{longtable}{|>{\raggedright\arraybackslash}p{2.2cm}|>{\raggedright\arraybackslash}p{3.8cm}|>{\raggedright\arraybackslash}p{1.4cm}|>{\raggedright\arraybackslash}p{4.2cm}|>{\raggedright\arraybackslash}p{3.5cm}|}
+    \caption{Search and Selection Log for Candidate Literature}
+    \label{tab:selection_log} \\
+    
+    \hline
+    \textbf{Platform} & \textbf{Query Used} & \textbf{Approx. Hits} & \textbf{Candidate Paper Details} & \textbf{Screening Decision \& Justification} \\
+    \hline
+    \endfirsthead 
+    
+    \multicolumn{5}{c}{\tablename\ \thetable\ -- \textit{Continued from previous page}} \\
+    \hline
+    \textbf{Platform} & \textbf{Query Used} & \textbf{Approx. Hits} & \textbf{Candidate Paper Details} & \textbf{Screening Decision \& Justification} \\
+    \hline
+    \endhead
+
+    \hline
+    \multicolumn{5}{r}{\textit{Continued on next page}} \\
+    \endfoot
+
+    \hline
+    \endlastfoot
+
+    % Paper 1
+    ACM Digital Library & 
+    Focused Query (\texttt{SRPT inexact job sizes}) & 
+    $\sim$140 & 
+    \textbf{A. Wierman and M. Nuyens (2008)} \newline
+    \textit{``Scheduling despite inexact job-size information.''} \newline
+    ACM SIGMETRICS / PER, 36(1):25--36. \newline
+    DOI: \url{10.1145/1375457.1375461} & 
+    \textbf{INCLUDED (New Paper 1):} \newline
+    Provides rigorous analytical bounds on how estimation errors degrade SRPT and SJF, revealing a fundamental asymmetry between underestimation and overestimation. Full text accessible. \\
+    \hline
+
+    % Paper 2
+    IEEE Xplore & 
+    Challenge Query (\texttt{SRPT preemption overhead FIFO}) & 
+    $\sim$85 & 
+    \textbf{C. G{\"o}rg (1986)} \newline
+    \textit{``Evaluation of the Optimal SRPT Strategy with Overhead.''} \newline
+    IEEE Trans. Comm., COM-34(4):338--344. \newline
+    DOI: \url{10.1109/TCOM.1986.1096541} & 
+    \textbf{INCLUDED (New Paper 2):} \newline
+    Directly models non-zero preemption overhead in an $M/G/1$ queue running SRPT and compares mean delay against FIFO (FCFS) and SPT. Full text accessible via IEEE. \\
+    \hline
+
+    % Paper 3
+    Google Scholar / Springer & 
+    Focused Query (\texttt{SERPT inaccurate job sizes hedging}) & 
+    $\sim$310 & 
+    \textbf{M. Akbari-Moghaddam and D. G. Down (2021)} \newline
+    \textit{``SEH: Size Estimate Hedging for Single-Server Queues.''} \newline
+    QEST 2021, LNCS 12846:187--203. \newline
+    DOI: \url{10.1007/978-3-030-85172-9_11} & 
+    \textbf{INCLUDED (New Paper 3):} \newline
+    Demonstrates the severe failure modes of naive Shortest Estimated Remaining Processing Time (SERPT) and introduces a priority-hedging policy to prevent queue collapse. Full text accessible. \\
+    \hline
+
+    % Paper 4
+    ACM Digital Library & 
+    Broad Query (\texttt{SRPT kernel preemption overhead}) & 
+    $\sim$420 & 
+    \textbf{M. Harchol-Balter, B. Schroeder, N. Bansal, and M. Agrawal (2003)} \newline
+    \textit{``Size-based scheduling to improve web performance.''} \newline
+    ACM TOCS, 21(2):207--233. \newline
+    DOI: \url{10.1145/762483.762486} & 
+    \textbf{EXCLUDED from Matrix:} \newline
+    Groundbreaking implementation of SRPT in the Linux kernel for Apache web servers measuring real context switches. Excluded from 3-paper matrix because focus is network socket priority rather than CPU burst prediction crossover. Retained as background evidence. \\
+    \hline
+
+    % Paper 5
+    Google Scholar & 
+    Focused Query (\texttt{price of misprediction scheduling}) & 
+    $\sim$180 & 
+    \textbf{M. Mitzenmacher (2020)} \newline
+    \textit{``Scheduling with Predictions and the Price of Misprediction.''} \newline
+    ITCS 2020, LIPIcs 151:14:1--14:18. \newline
+    DOI: \url{10.4230/LIPIcs.ITCS.2020.14} & 
+    \textbf{EXCLUDED from Matrix:} \newline
+    Analyzes competitive ratios of scheduling with ML predictions under bounded error. Excluded because it focuses on abstract theoretical competitive ratios rather than empirical CPU waiting times or context-switch microsecond trade-offs. \\
+    \hline
+
+\end{longtable}
+}
+
+
+% ============================================================================================
+\newpage
+{\centering\fontsize{16}{20}\selectfont\textbf{Stage 4 --- Challenge the Gap Using New Evidence}\par}
+\vspace{1em}
+
+\topicTitle{G. Examine the Three Selected Papers}
+
+Each student in our group examined one newly discovered paper in detail, analyzing its research question, methodology, mathematical models, empirical findings, and operational assumptions. Table~\ref{tab:gap_verification_matrix} compiles our findings into a structured \textbf{Gap Verification Matrix} to directly evaluate whether our proposed gap remains defensible.
+
+\vspace{0.5em}
+{\small
+\begin{longtable}{|>{\raggedright\arraybackslash}p{3.2cm}|>{\raggedright\arraybackslash}p{3.9cm}|>{\raggedright\arraybackslash}p{3.9cm}|>{\raggedright\arraybackslash}p{4.2cm}|}
+    \caption{Gap Verification Matrix Challenging the Proposed Research Gap}
+    \label{tab:gap_verification_matrix} \\
+    
+    \hline
+    \textbf{Evaluation Dimension} & 
+    \textbf{New Paper 1: Wierman \& Nuyens (2008) [3]} & 
+    \textbf{New Paper 2: G{\"o}rg (1986) [4]} & 
+    \textbf{New Paper 3: Akbari-Moghaddam \& Down (2021) [5]} \\
+    \hline
+    \endfirsthead 
+    
+    \multicolumn{4}{c}{\tablename\ \thetable\ -- \textit{Continued from previous page}} \\
+    \hline
+    \textbf{Evaluation Dimension} & 
+    \textbf{New Paper 1: Wierman \& Nuyens (2008) [3]} & 
+    \textbf{New Paper 2: G{\"o}rg (1986) [4]} & 
+    \textbf{New Paper 3: Akbari-Moghaddam \& Down (2021) [5]} \\
+    \hline
+    \endhead
+
+    \hline
+    \multicolumn{4}{r}{\textit{Continued on next page}} \\
+    \endfoot
+
+    \hline
+    \endlastfoot
+
+    % Row 1: Question addressed
+    \textbf{Question / Problem Addressed} & 
+    How does inexact job-size information affect the performance of size-based scheduling policies (SJF, SRPT), and how do estimation errors propagate into mean response time? & 
+    How does constant preemption overhead (switching delay) affect the delay time performance of SRPT in an $M/G/1$ queue compared to FIFO and SPT? & 
+    How can single-server scheduling policies prevent catastrophic queue collapse when SRPT operates under inaccurate job size estimates (SERPT)? \\
+    \hline
+
+    % Row 2: Relevance to proposed gap
+    \textbf{Relevance to Our Proposed Gap} & 
+    Directly addresses our independent variable of \textbf{prediction error}, analyzing whether imperfect knowledge destroys SRPT's performance advantage over size-oblivious baselines. & 
+    Directly addresses our independent variable of \textbf{context-switch latency}, quantifying the exact penalty of preemption overhead on SRPT relative to FIFO (FCFS). & 
+    Directly evaluates the vulnerability of preemptive shortest-job scheduling to prediction noise and models modern heuristic safeguards against misprediction. \\
+    \hline
+
+    % Row 3: Evidence directly addressing the gap
+    \textbf{Evidence Directly Addressing the Gap} & 
+    \textbf{Fundamental Asymmetry Discovery:} The authors prove that estimation error impact is non-linear. \textit{Overestimating} job size causes only minor, bounded degradation. However, \textit{underestimating} a large job is catastrophic: the large job is mistakenly prioritized, causing massive queue build-up and starvation of true short jobs. They establish mathematical error bounds where SRPT degrades below Processor Sharing. & 
+    \textbf{Overhead Robustness Discovery:} G{\"o}rg shows that even when preemption incurs non-zero switching overhead ($c > 0$), SRPT retains a major mean delay advantage over FIFO across moderate to high job-size variance distributions (e.g., hyperexponential). FIFO only matches or outperforms SRPT when switching overhead is exceptionally large relative to mean service time. & 
+    \textbf{SERPT Instability vs. Hedging:} Evaluates SERPT under multiplicative and additive error models. Proves that naive SERPT suffers severe tail latency and mean delay inflation under heavy loads. Shows that Size Estimate Hedging (SEH) restores near-optimal performance by freezing a job's priority once its service time exceeds its estimate. \\
+    \hline
+
+    % Row 4: Conditions / limitations
+    \textbf{Conditions and Limitations} & 
+    Theoretical queueing framework ($M/G/1$ queue); assumes preemption context switching takes zero time ($t_{cs}=0$); uses idealized error distributions (multiplicative/additive noise models) rather than real OS prediction traces. & 
+    Assumes perfect advance knowledge of job sizes (zero prediction error); models overhead as a fixed constant time penalty ($c$); does not account for architectural cache/TLB cold-miss effects. & 
+    Evaluates simulated queueing models with synthetic Pareto and Weibull distributions; ignores memory footprint, cache invalidation penalties, and thread state restoration overheads. \\
+    \hline
+
+    % Row 5: Impact on gap claim
+    \textbf{Does it Support, Weaken, or Challenge Our Gap Claim?} & 
+    \textbf{CHALLENGES AND REFINES:} Challenges our assumption that prediction error can be treated as a simple symmetric scalar ($\pm \epsilon\%$). Shows that the direction of error (underestimation vs.\ overestimation) is the critical determinant of whether SRPT breaks down. & 
+    \textbf{WEAKENS:} Severely weakens our original premise that context-switch overhead easily causes SRTF to fail against FCFS. Demonstrates that SRPT's prioritization of short jobs is so robust that FCFS rarely wins in realistic workloads unless overhead is massive. & 
+    \textbf{CHALLENGES:} Challenges the relevance of comparing raw SRTF against FCFS. Shows that operating systems can trivially mitigate prediction error by capping priority (hedging) rather than reverting to FCFS. \\
+    \hline
+
+    % Row 6: Exact source location
+    \textbf{Exact Source Location} & 
+    Section~3 (The Impact of Inexact Information), Section~4 (Bounding Response Time), Theorems~4.1--4.3, Figs.~1--3 (pp.~28--32). & 
+    Section~III (Analysis of SRPT with Overhead), Section~IV (Numerical Results, Figs.~1--5), pp.~339--343. & 
+    Section~3 (The SERPT Vulnerability), Section~4 (Size Estimate Hedging Algorithm), Section~5 (Simulation Experiments, Figs.~2--6). \\
+    \hline
+
+\end{longtable}
+}
+
+
+% ============================================================================================
+\newpage
+{\centering\fontsize{16}{20}\selectfont\textbf{Stage 5 --- Decide What Happens to Your Research Question}\par}
+\vspace{1em}
+
+\topicTitle{H. Reassess Your Original Position}
+
+Based on the evidence synthesized from our original papers and the three newly analyzed studies, our group evaluated the four prescribed decision outcomes:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Selected Outcome: Outcome B --- Refine}
+\end{itemize}
+
+\noindent\textbf{Justification for Decision:}
+Our literature search revealed that our original research question—asking at what prediction error thresholds and context-switch latencies SRTF fails to outperform FCFS—is both partially solved and methodologically misaligned with modern systems research:
+\begin{enumerate}[label=(\alph*)]
+    \item \textbf{Preemption Overhead is Insufficient to Favor FCFS:} G{\"o}rg~[4] demonstrated that in workloads with high job-size variance (characteristic of real-world computing), SRPT's structural advantage is so dominant that constant preemption overhead rarely degrades it below FIFO (FCFS) unless the overhead approaches the scale of the jobs themselves. Assuming a simple crossover against FCFS driven primarily by context-switch time is therefore physically unrealistic.
+    \item \textbf{Prediction Error is Asymmetric:} Wierman and Nuyens~[3] and Akbari-Moghaddam and Down~[5] proved that prediction error cannot be treated as a generic, symmetric Gaussian noise parameter. Overestimation causes almost no harm, whereas underestimation causes catastrophic degradation. A research question that evaluates uniform error percentage fails to capture the true failure mode of shortest-job scheduling.
+    \item \textbf{FCFS is an Inappropriate Target Baseline:} In modern operating systems, FCFS is never used as an alternative to preemptive schedulers. Real systems employ Multilevel Feedback Queues (MLFQ) or priority decay heuristics that dynamically protect against underestimation without sacrificing interactive responsiveness.
+\end{enumerate}
+Therefore, retaining the question unchanged (Outcome~A) would ignore established queueing theory, while abandoning the topic entirely (Outcome~C) is unnecessary because the \textbf{joint empirical interaction} between asymmetric runtime estimation (e.g., machine learning and exponential smoothing) and hardware-level cache perturbation remains an active, unmeasured systems problem. We must \textbf{refine} our question to narrow its scope, account for asymmetric error, and compare against realistic operating system baselines (e.g., MLFQ) under heavy-tailed distributions.
+
+\vspace{1.0em}
+\topicTitle{I. Revised Research Justification}
+
+\noindent\fbox{
+\parbox{0.96\textwidth}{
+\vspace{0.4em}
+Our original research question investigated the prediction error thresholds and context-switch latencies at which Shortest Remaining Time First (SRTF) fails to outperform First-Come-First-Served (FCFS) in average waiting time. Examining prior literature revealed that the interaction between scheduling overhead, estimation noise, and latency is more nuanced than anticipated. G{\"o}rg [4] proved that SRPT maintains superior delay efficiency over FIFO even under substantial preemption overhead for high-variance workloads. Furthermore, Wierman and Nuyens [3] and Akbari-Moghaddam and Down [5] demonstrated that estimation error affects scheduling asymmetrically: while overestimation causes benign degradation, underestimating long jobs causes catastrophic queue collapse under naive SERPT. Consequently, our understanding changed: raw context-switch latency rarely causes SRTF to degrade below FCFS, whereas asymmetric underestimation noise severely undermines stability. Comparing noisy SRTF exclusively against FCFS provides limited insight because FCFS is absent in modern interactive systems. The question that remains critically worth investigating is: Under what degree of burst underestimation and cache-invalidation penalty does predictive SRTF fail to outperform adaptive Multilevel Feedback Queue (MLFQ) scheduling under heavy-tailed burst distributions? Answering this requires trace-driven architectural simulation incorporating non-uniform prediction noise.
+\vspace{0.4em}
+}
+}
+
+\vspace{0.5em}
+\noindent\textit{(Word count: 172 words; strictly within the required 150--200 word limit).}
+
+
+% ============================================================================================
+\newpage
+{\centering\fontsize{16}{20}\selectfont\textbf{Stage 6 --- Individual Reflection}\par}
+\vspace{1em}
+
+{\centering\fontsize{14}{16.8}\selectfont \textbf{Student 1: Gaurav Acharya (MT26MCS024)}\par}
+\vspace{1em}
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=1.0em]
+
+    \item \textbf{Which newly discovered paper most seriously challenged your group's original thinking? Why?} \\
+    The paper by Carmelita G{\"o}rg (1986)~[4] most seriously challenged my thinking. In Practical~7, I operated under the assumption that because SRTF preempts frequently, adding a realistic context-switch latency ($t_{cs}$) would rapidly compound and flip the performance balance in favor of non-preemptive FCFS. G{\"o}rg's mathematical analysis in the $M/G/1$ queue completely dismantled this intuition. She proved that even with substantial preemption overhead, SRPT maintains a massive delay advantage over FIFO under workloads with high service-time variance. Because short jobs complete so rapidly under SRPT, the queue remains drastically shorter than under FIFO, where a single long process stalls all subsequent arrivals (the convoy effect). G{\"o}rg showed that preemption overhead degrades SRPT in absolute terms, but rarely enough to make FIFO preferable. This forced me to realize that our original hypothesis—that switching latency alone could make FCFS beat SRTF—was physically improbable for realistic workloads.
+
+    \item \textbf{What did you learn about the difference between searching for supporting evidence and searching for challenging evidence?} \\
+    I learned that searching for supporting evidence is inherently prone to confirmation bias. When searching for support, researchers formulate queries that describe the problem they want to believe exists (e.g., typing \texttt{"burst time estimation error hurts scheduling"}). This yields papers that validate the existence of the difficulty without evaluating whether it has already been resolved. In contrast, searching for challenging evidence requires an adversarial mindset: deliberately constructing queries aimed at falsifying your own hypothesis (e.g., searching for \texttt{"SRPT with preemption overhead outperforms FIFO"} or \texttt{"robustness of SRPT under inexact job sizes"}). Searching for challenging evidence is vastly more valuable because it exposes prior solutions before you invest time in redundant research. It transforms a naive, unverified claim into a scientifically defensible argument.
+
+    \item \textbf{Can you now confidently claim that your research question is novel? Why or why not?} \\
+    No, I cannot claim that our original research question was novel. The broad theoretical question of whether estimation error and preemption overhead cause SRPT to degrade below FIFO was investigated and largely answered decades ago by G{\"o}rg~[4] and Wierman and Nuyens~[3]. Claiming novelty for that general question would merely expose ignorance of classic queueing literature. However, I can confidently claim novelty for our \textbf{refined question}. By shifting our investigation to the joint impact of \textit{asymmetric underestimation bias} and \textit{hardware cache/TLB invalidation penalties} comparing predictive SRTF against \textit{Multilevel Feedback Queues (MLFQ)} on empirical trace workloads, we have formulated an investigable question that addresses an unresolved practical boundary in modern systems engineering.
+
+    \item \textbf{What would you change in your literature-search strategy if given more time?} \\
+    If given more time, I would expand my search vocabulary across interdisciplinary boundaries earlier. Computer systems engineers and applied probability theorists frequently use entirely different terminology for identical phenomena. For example, systems papers refer to \textit{``CPU burst prediction error,''} while mathematics papers refer to \textit{``scheduling with inexact job sizes''} or \textit{``the price of misprediction.''} Translating systems concepts into queueing theory keywords unlocked the most critical papers in this assignment. Additionally, I would use forward-citation snowballing in Scopus and Web of Science, taking seminal papers like Wierman and Nuyens (2008) and tracking every paper that cited them over the subsequent fifteen years.
+
+\end{enumerate}
+
+
+% ============================================================================================
+\newpage
+{\centering\fontsize{16}{20}\selectfont\textbf{Stage 6 --- Individual Reflection}\par}
+\vspace{1em}
+
+{\centering\fontsize{14}{16.8}\selectfont \textbf{Student 2: Sandeep (MT26MCS032)}\par}
+\vspace{1em}
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=1.0em]
+
+    \item \textbf{Which newly discovered paper most seriously challenged your group's original thinking? Why?} \\
+    The paper by Adam Wierman and Misja Nuyens (2008)~[3] fundamentally overturned my understanding. In Practical~7, I treated prediction error as a generic, symmetric random variable (e.g., adding a uniform $\pm 20\%$ noise to burst times). Wierman and Nuyens demonstrated that prediction error in size-based scheduling is profoundly \textbf{asymmetric}. If an algorithm overestimates a short job's duration, the job simply waits slightly longer in queue, but its execution remains brief, causing minimal system harm. Conversely, if an algorithm underestimates a long job's duration, the consequences are disastrous: the scheduler promotes a large job to highest priority, allowing it to monopolize the CPU while truly short jobs accumulate behind it, destroying average latency. Discovering this structural asymmetry proved that evaluating generic ``error thresholds'' without isolating the direction of error is scientifically flawed.
+
+    \item \textbf{What did you learn about the difference between searching for supporting evidence and searching for challenging evidence?} \\
+    Searching for supporting evidence merely confirms that an issue is acknowledged; searching for challenging evidence tests whether an issue is an open gap or a solved theorem. When our group searched for supporting evidence, we found dozens of introductory papers stating that \textit{``estimating burst times is hard in practice.''} But when we formulated challenge queries, we discovered that researchers had not only analyzed this difficulty, but had developed sophisticated heuristics like Size Estimate Hedging (SEH)~[5] and priority freezing to resolve it. Searching for challenging evidence acts as a rigorous intellectual stress test: it forces researchers to discard superficial assumptions, confront existing theorems, and focus only on genuine gaps at the frontier of knowledge.
+
+    \item \textbf{Can you now confidently claim that your research question is novel? Why or why not?} \\
+    We cannot claim novelty for our original formulation. The theoretical boundary where inaccurate job sizes degrade SRPT below size-oblivious policies was formally established by Wierman and Nuyens~[3]. Asserting novelty for a simple SRTF vs.\ FCFS parameter sweep would be immediately rejected by reviewers in the systems community. However, our refined research question possesses clear, defensible novelty. While prior literature analyzed synthetic mathematical queues with zero preemption cost or isolated overhead with perfect job knowledge, no prior study has characterized the multi-variable empirical trade-off between modern online machine-learning predictors, hardware-level CPU cache miss penalties, and adaptive MLFQ thresholds on real-world multi-core traces.
+
+    \item \textbf{What would you change in your literature-search strategy if given more time?} \\
+    If granted more time, I would incorporate systematic backward and forward citation chaining (pearl growing). Starting with seminal works like Harchol-Balter et al.~[6] and Wierman and Nuyens~[3], I would trace their citation trajectories to identify recent publications (from 2020 to 2025) in top-tier systems venues such as USENIX OSDI, EuroSys, and ACM SOSP. In particular, I would target emerging literature on learning-augmented scheduling and the Linux kernel's newly integrated BPF extensible scheduler (\texttt{sched\_ext}). This would ensure our refined research question addresses active operating system design challenges rather than purely retrospective queueing formulations.
+
+\end{enumerate}
+
+
+% ============================================================================================
+\newpage
+{\centering\fontsize{16}{20}\selectfont\textbf{Stage 7 --- Disclosure of AI Tool Usage}\par}
+\vspace{1em}
+
+\topicTitle{Academic Integrity and Tool Transparency Statement}
+
+In strict compliance with Section~5 (``Use of AI Tools'') of the Practical~8 guidelines, our group records the following disclosure regarding the utilization of artificial intelligence assistance:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Independent Formulation of Queries and Concepts:} During the initial phase of this practical, all search concepts (Table~\ref{tab:search_concepts}), operational definitions, and three query structures (Broad, Focused, and Challenge) were developed independently by our group members based on our previous findings in Practicals~5, 6, and~7.
+    \item \textbf{Assisted Discovery and Keyword Expansion:} An AI language model was utilized subsequent to our initial formulation to suggest cross-disciplinary synonyms and alternative technical taxonomies connecting operating system scheduling to applied queueing theory (specifically identifying the terms \textit{``SERPT''}, \textit{``inexact job-size information''}, and \textit{``Size Estimate Hedging''}).
+    \item \textbf{Verification of Sources and Primary Literature:} In accordance with course guidelines, no AI-generated summary was accepted as a substitute for primary reading. Every candidate paper cited in this document (Wierman \& Nuyens [3], G{\"o}rg [4], Akbari-Moghaddam \& Down [5], Harchol-Balter et al. [6], and Mitzenmacher [7]) was retrieved, accessed in full text, and verified against its original peer-reviewed publication venue. Specific theorem numbers, section headings, and empirical findings recorded in the Gap Verification Matrix (Table~\ref{tab:gap_verification_matrix}) were directly inspected by group members.
+\end{itemize}
+
+
+% ============================================================================================
+\vspace{1.5em}
+{\centering\fontsize{16}{20}\selectfont\textbf{References}\par}
+\vspace{1em}
+
+\begin{enumerate}[leftmargin=2.0em, label={[\arabic*]}]
+
+    \item S.~S. Reddy, ``Comparative Analysis of CPU Scheduling Algorithms for Performance Efficiency,'' \textit{International Journal of Computer Trends and Technology}, 2024.
+
+    \item B.~Samanta and A.~Biswas, ``Comparative Analysis of Different CPU Scheduling Algorithms with Respect to Average Waiting Time and Average Turnaround Time,'' in \textit{Mathematics and Computer Science: Research Updates}, vol.~5, BP International, pp.~178--186, 2025. DOI: \url{10.9734/bpi/mcsru/v5/4919}.
+
+    \item A.~Wierman and M.~Nuyens, ``Scheduling despite inexact job-size information,'' in \textit{Proceedings of the 2008 ACM SIGMETRICS International Conference on Measurement and Modeling of Computer Systems (SIGMETRICS '08)}, pp.~25--36, 2008. DOI: \url{10.1145/1375457.1375461}.
+
+    \item C.~G{\"o}rg, ``Evaluation of the Optimal SRPT Strategy with Overhead,'' \textit{IEEE Transactions on Communications}, vol.~COM-34, no.~4, pp.~338--344, Apr. 1986. DOI: \url{10.1109/TCOM.1986.1096541}.
+
+    \item M.~Akbari-Moghaddam and D.~G. Down, ``SEH: Size Estimate Hedging for Single-Server Queues,'' in \textit{Quantitative Evaluation of Systems (QEST 2021)}, Lecture Notes in Computer Science, vol.~12846, Springer, Cham, pp.~187--203, 2021. DOI: \url{10.1007/978-3-030-85172-9_11}.
+
+    \item M.~Harchol-Balter, B.~Schroeder, N.~Bansal, and M.~Agrawal, ``Size-based scheduling to improve web performance,'' \textit{ACM Transactions on Computer Systems (TOCS)}, vol.~21, no.~2, pp.~207--233, May 2003. DOI: \url{10.1145/762483.762486}.
+
+    \item M.~Mitzenmacher, ``Scheduling with Predictions and the Price of Misprediction,'' in \textit{11th Innovations in Theoretical Computer Science Conference (ITCS 2020)}, LIPIcs, vol.~151, pp.~14:1--14:18, 2020. DOI: \url{10.4230/LIPIcs.ITCS.2020.14}.
+
+\end{enumerate}
+
+\end{document}
